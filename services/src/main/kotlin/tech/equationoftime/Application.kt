@@ -2,10 +2,12 @@ package tech.equationoftime
 
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
+import tech.equationoftime.models.DeviceMetadata
+import tech.equationoftime.models.FirmwareMetadata
 import tech.equationoftime.plugins.*
-import kotlin.io.path.Path
 
 var firmwareMetadata = mutableListOf<FirmwareMetadata>()
+var deviceMetadata = mutableListOf<DeviceMetadata>()
 val firmwareRoot = "firmwares"
 
 fun main() {
@@ -14,6 +16,7 @@ fun main() {
         configureHTTP()
         configureTemplating()
         configureSerialization()
-        configureRouting()
+        configureFirmwareAPI()
+        configureDeviceAPI()
     }.start(wait = true)
 }

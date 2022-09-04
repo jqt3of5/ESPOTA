@@ -3,22 +3,24 @@ package tech.equationoftime.plugins
 import com.benasher44.uuid.uuid4
 import io.ktor.server.routing.*
 import io.ktor.http.*
+import io.ktor.http.content.*
 import io.ktor.server.application.*
-import io.ktor.server.response.*
 import io.ktor.server.request.*
-import tech.equationoftime.FirmwareMetadata
+import io.ktor.server.response.*
+import tech.equationoftime.models.FirmwareMetadata
 import tech.equationoftime.firmwareMetadata
 import tech.equationoftime.firmwareRoot
+import java.io.File
 import kotlin.io.path.Path
 
-fun Application.configureRouting() {
+fun Application.configureFirmwareAPI() {
 
     routing {
         //Get all firmwares
         get("/firmware") {
-            val name = this.context.request.queryParameters["name"] 
-            val version = this.context.request.queryParameters["version"]
-            val platform = this.context.request.queryParameters["platform"]
+            val name = call.request.queryParameters["name"]
+            val version = call.request.queryParameters["version"]
+            val platform = call.request.queryParameters["platform"]
 
             val metadatas = firmwareMetadata.filter {
                 if (name != null && name != it.name)
@@ -40,18 +42,29 @@ fun Application.configureRouting() {
         
         //Upload new firmware version
         post("/firmware/{platform}/{name}/{version}") {
-            val name = this.context.parameters["name"] ?: ""
-            val version = this.context.parameters["version"] ?: ""
-            val platform = this.context.parameters["platform"] ?: ""
+            val name = call.parameters["name"] ?: ""
+            val version = call.parameters["version"] ?: ""
+            val platform = call.parameters["platform"] ?: ""
 
-            var uuid = uuid4().toString()
+            val uuid = uuid4().toString()
             firmwareMetadata.add(FirmwareMetadata(uuid, name, version, platform))
 
+            call.receiveMultipart().forEachPart {
+                when(it) {
+                    is PartData.FileItem -> {
+                        val bytes = it.streamProvider().readBytes()
+                        File("$firmwareRoot/$uuid").writeBytes(bytes)
+                    }
+                    else -> {}
+                }
+            }
+
+            call.respond("")
         }
         //Get metadata
         get ("/firmware/{platform}/{name}/{version}/metadata") {
-            val name = this.context.parameters["name"] ?: ""
-            val version = this.context.parameters["version"] ?: ""
+            val name = call.parameters["name"] ?: ""
+            val version = call.parameters["version"] ?: ""
 
             val metadata = firmwareMetadata.find {
                 return@find it.version == version && it.name == name
@@ -62,24 +75,19 @@ fun Application.configureRouting() {
 
         //Download
         get ("/firmware/{platform}/{name}/{version}") {
-            this.context.parameters["name"] ?.let {name ->
-                this.context.parameters["version"]?.let {version ->
-                    this.context.parameters["platform"]?.let {platform ->
+            call.parameters["name"] ?.let {name ->
+                call.parameters["version"]?.let {version ->
+                    call.parameters["platform"]?.let {platform ->
                         val file = java.io.File(Path(firmwareRoot, name, version, platform).toString())
                         if (!file.exists())
                         {
                             return@get call.respond("file not found")
                         }
+                        call.respondFile(file)
                     }
                 }
             }
-
-            return@get call.respond("")
+            return@get call.respond("One or more path parameters were null")
         }
-
-        put ("/firmware/{name}/{version}") {
-
-        }
-
     }
 }

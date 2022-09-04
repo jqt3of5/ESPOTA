@@ -24,6 +24,7 @@ repositories {
 
 dependencies {
     implementation("com.benasher44:uuid:0.5.0")
+    implementation("org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.4")
     implementation("io.ktor:ktor-server-core-jvm:$ktor_version")
     implementation("io.ktor:ktor-server-auth-jvm:$ktor_version")
     implementation("io.ktor:ktor-server-cors-jvm:$ktor_version")
