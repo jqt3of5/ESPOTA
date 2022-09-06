@@ -47,6 +47,7 @@ fun Application.configureFirmwareAPI(firmwareMetadatas: MutableList<FirmwareMeta
             val name = call.parameters["name"] ?: ""
             val version = call.parameters["version"] ?: ""
             val platform = call.parameters["platform"] ?: ""
+            val description = call.receiveText()
 
             if (firmwareMetadatas.find {
                 it.name == name && it.version == version && it.platform == platform
@@ -57,7 +58,7 @@ fun Application.configureFirmwareAPI(firmwareMetadatas: MutableList<FirmwareMeta
             }
             //TODO: Validation Logic for version numbers/sorting/ids/etc
             val uuid = uuid4().toString()
-            firmwareMetadatas.add(FirmwareMetadata(uuid, name, version, platform))
+            firmwareMetadatas.add(FirmwareMetadata(uuid, name, version, platform, description))
 
             call.receiveMultipart().forEachPart {
                 when(it) {

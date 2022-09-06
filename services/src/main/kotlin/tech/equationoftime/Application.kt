@@ -20,9 +20,9 @@ fun main() {
     var deviceMetadata = mutableListOf<DeviceMetadata>()
     var firmwareMetadata = mutableListOf<FirmwareMetadata>()
 
-    firmwareMetadata.add(FirmwareMetadata("1234", "name", "1.0.0", "esp"))
-    firmwareMetadata.add(FirmwareMetadata("12345", "name", "1.0.1", "esp"))
-    firmwareMetadata.add(FirmwareMetadata("12346", "name2", "1.0.1", "esp"))
+    firmwareMetadata.add(FirmwareMetadata("1234", "name", "1.0.0", "esp", ""))
+    firmwareMetadata.add(FirmwareMetadata("12345", "name", "1.0.1", "esp", ""))
+    firmwareMetadata.add(FirmwareMetadata("12346", "name2", "1.0.1", "esp", ""))
 
     val client = MqttClient("tcp://tiltpi.equationoftime.tech:1883","esp-ota-manager")
     val firmwareHttpClient = HttpClient(CIO) {
