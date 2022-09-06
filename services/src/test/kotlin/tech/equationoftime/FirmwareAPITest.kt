@@ -97,7 +97,32 @@ class FirmwareAPITest {
         .apply {
             assertEquals(HttpStatusCode.OK, status)
             assert(File(Path(firmwareRoot, body<String>()).toString()).exists())
+            assertEquals(1, firmwareMetadata.count())
         }
+    }
+    @Test
+    fun testAddExistingFirmware() = testApplication {
+
+        val firmwareMetadata= mutableListOf<FirmwareMetadata>()
+        firmwareMetadata.add(FirmwareMetadata("id", "name", "version", "platform"))
+
+        application {
+            configureSerialization()
+            configureFirmwareAPI(firmwareMetadata)
+        }
+
+        client.submitFormWithBinaryData("/firmware/platform/name/version", formData {
+            append("description", "testfilename")
+            append("file", File("gradlew").readBytes(), Headers.build {
+                append(HttpHeaders.ContentType, "application/octet-stream")
+                append(HttpHeaders.ContentDisposition, "filename=\"firmware\"")
+            })
+        })
+            .apply {
+                assertEquals(HttpStatusCode.BadRequest, status)
+                assert(File(Path(firmwareRoot, body<String>()).toString()).exists())
+                assertEquals(1, firmwareMetadata.count())
+            }
     }
     @Test
     fun testGetNewFirmware() = testApplication {
@@ -127,6 +152,20 @@ class FirmwareAPITest {
             assertEquals("name", metadata.name)
             assertEquals("1.0.0", metadata.version)
             assertEquals(uuid, metadata.id)
+        }
+    }
+    @Test
+    fun testGetNonFirmware() = testApplication {
+
+        val firmwareMetadata= mutableListOf<FirmwareMetadata>()
+
+        application {
+            configureSerialization()
+            configureFirmwareAPI(firmwareMetadata)
+        }
+
+        client.get("/firmware/esp/name/1.0.0/metadata").apply {
+            assertEquals(HttpStatusCode.NotFound, status)
         }
     }
 }

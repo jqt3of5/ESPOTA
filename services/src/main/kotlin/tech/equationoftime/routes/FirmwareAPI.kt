@@ -48,6 +48,13 @@ fun Application.configureFirmwareAPI(firmwareMetadatas: MutableList<FirmwareMeta
             val version = call.parameters["version"] ?: ""
             val platform = call.parameters["platform"] ?: ""
 
+            if (firmwareMetadatas.find {
+                it.name == name && it.version == version && it.platform == platform
+                } != null)
+            {
+                call.respond(HttpStatusCode.BadRequest)
+                return@post
+            }
             //TODO: Validation Logic for version numbers/sorting/ids/etc
             val uuid = uuid4().toString()
             firmwareMetadatas.add(FirmwareMetadata(uuid, name, version, platform))

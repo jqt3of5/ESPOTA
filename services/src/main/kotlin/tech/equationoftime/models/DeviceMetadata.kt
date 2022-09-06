@@ -1,4 +1,4 @@
 package tech.equationoftime.models
 
 @kotlinx.serialization.Serializable
-data class DeviceMetadata(val id : String, val name : String, val online : Boolean, val lastMessage : Int, val ip : String, val platform : String, val firmwareName : String, val firmwareVersion : String)
+data class DeviceMetadata(val id : String, val name : String, val online : Boolean, val ssid : String, val lastMessage : Long, val ip : String, val platform : String, val firmwareName : String, val firmwareVersion : String)

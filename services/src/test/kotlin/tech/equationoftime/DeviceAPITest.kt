@@ -23,7 +23,7 @@ class DeviceAPITest {
     fun testDevices() = testApplication {
 
         val deviceMetadata = mutableListOf<DeviceMetadata>()
-        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, 12345678, "192.168.1.1", "esp", "name", "1.0.0"))
+        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, "ssid", 12345678, "192.168.1.1", "esp", "name", "1.0.0"))
 
         val mock = mockk<IMqttClient>()
         every { mock.setCallback(any()) } returns Unit
@@ -31,7 +31,7 @@ class DeviceAPITest {
         val service = DeviceMqttService(mock)
         application {
             configureSerialization()
-            configureDeviceAPI(service, deviceMetadata)
+            configureDeviceAPI(service, "http://localhost", deviceMetadata)
         }
 
         client.get("/devices").apply {
@@ -45,9 +45,9 @@ class DeviceAPITest {
     fun testDeviceFilter() = testApplication {
 
         val deviceMetadata = mutableListOf<DeviceMetadata>()
-        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, 12345678, "192.168.1.1", "esp", "name1", "1.0.0"))
-        deviceMetadata.add(DeviceMetadata("1235", "main-device2", true, 12345678, "192.168.1.2", "esp", "name", "1.0.0"))
-        deviceMetadata.add(DeviceMetadata("1236", "main-device3", true, 12345678, "192.168.1.3", "nano", "name1", "1.0.1"))
+        deviceMetadata.add(DeviceMetadata("1234", "main-device", true,"ssid",  12345678, "192.168.1.1", "esp", "name1", "1.0.0"))
+        deviceMetadata.add(DeviceMetadata("1235", "main-device2", true, "ssid", 12345678, "192.168.1.2", "esp", "name", "1.0.0"))
+        deviceMetadata.add(DeviceMetadata("1236", "main-device3", true, "ssid", 12345678, "192.168.1.3", "nano", "name1", "1.0.1"))
 
         val mock = mockk<IMqttClient>()
         every { mock.setCallback(any()) } returns Unit
@@ -55,7 +55,7 @@ class DeviceAPITest {
         val service = DeviceMqttService(mock)
         application {
             configureSerialization()
-            configureDeviceAPI(service, deviceMetadata)
+            configureDeviceAPI(service, "http://localhost", deviceMetadata)
         }
 
         client.get("/devices?firmwareName=name").apply {
@@ -79,7 +79,7 @@ class DeviceAPITest {
     fun testReboot() = testApplication {
 
         val deviceMetadata = mutableListOf<DeviceMetadata>()
-        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, 12345678, "192.168.1.1", "esp", "name", "1.0.0"))
+        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, "ssid", 12345678, "192.168.1.1", "esp", "name", "1.0.0"))
 
         val mock = mockk<IMqttClient>()
         every { mock.setCallback(any()) } returns Unit
@@ -89,7 +89,7 @@ class DeviceAPITest {
         val service = DeviceMqttService(mock)
         application {
             configureSerialization()
-            configureDeviceAPI(service, deviceMetadata)
+            configureDeviceAPI(service, "http://localhost", deviceMetadata)
         }
 
         client.post("/devices/1234/reboot").apply {
@@ -103,7 +103,7 @@ class DeviceAPITest {
     fun testWifi() = testApplication {
 
         val deviceMetadata = mutableListOf<DeviceMetadata>()
-        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, 12345678, "192.168.1.1", "esp", "name", "1.0.0"))
+        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, "ssid", 12345678, "192.168.1.1", "esp", "name", "1.0.0"))
 
         val mock = mockk<IMqttClient>()
         every { mock.setCallback(any()) } returns Unit
@@ -113,7 +113,7 @@ class DeviceAPITest {
         val service = DeviceMqttService(mock)
         application {
             configureSerialization()
-            configureDeviceAPI(service, deviceMetadata)
+            configureDeviceAPI(service, "http://localhost", deviceMetadata)
         }
         val client = createClient {
             install(ContentNegotiation) {
@@ -137,17 +137,16 @@ class DeviceAPITest {
     fun testFlash() = testApplication {
 
         val deviceMetadata = mutableListOf<DeviceMetadata>()
-        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, 12345678, "192.168.1.1", "esp", "name", "1.0.0"))
+        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, "ssid", 12345678, "192.168.1.1", "esp", "name", "1.0.0"))
 
         val mock = mockk<IMqttClient>()
         every { mock.setCallback(any()) } returns Unit
         every { mock.publish(any(), any()) } returns Unit
 
-
         val service = DeviceMqttService(mock)
         application {
             configureSerialization()
-            configureDeviceAPI(service, deviceMetadata)
+            configureDeviceAPI(service, "http://localhost", deviceMetadata)
         }
         val client = createClient {
             install(ContentNegotiation) {
@@ -164,13 +163,13 @@ class DeviceAPITest {
         verify {
             mock.publish("device/1234/flash", capture(slot))
         }
-        assertEquals("firmware/1", slot.captured.payload.decodeToString())
+        assertEquals("http://localhost/firmware/1", slot.captured.payload.decodeToString())
     }
     @Test
     fun testMdns() = testApplication {
 
         val deviceMetadata = mutableListOf<DeviceMetadata>()
-        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, 12345678, "192.168.1.1", "esp", "name", "1.0.0"))
+        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, "WaitingOnComcast", 12345678, "192.168.1.1", "esp", "name", "1.0.0"))
 
         val mock = mockk<IMqttClient>()
         every { mock.setCallback(any()) } returns Unit
@@ -179,7 +178,7 @@ class DeviceAPITest {
         val service = DeviceMqttService(mock)
         application {
             configureSerialization()
-            configureDeviceAPI(service, deviceMetadata)
+            configureDeviceAPI(service, "http://localhost", deviceMetadata)
         }
         val client = createClient {
             install(ContentNegotiation) {
@@ -198,5 +197,126 @@ class DeviceAPITest {
             mock.publish("device/1234/mdns", capture(slot))
         }
         assertEquals("newmdnsname", slot.captured.payload.decodeToString())
+    }
+    @Test
+    fun testAddDevice() = testApplication {
+
+        val deviceMetadata = mutableListOf<DeviceMetadata>()
+
+        val mock = mockk<IMqttClient>()
+        every { mock.setCallback(any()) } returns Unit
+        every { mock.publish(any(), any()) } returns Unit
+
+        val service = DeviceMqttService(mock)
+        application {
+            configureSerialization()
+            configureDeviceAPI(service, "http://localhost", deviceMetadata)
+        }
+        val client = createClient {
+            install(ContentNegotiation) {
+                json()
+            }
+        }
+
+        client.post("/devices/1234"){
+            header("content-type", "application/json")
+            setBody(onlineDTO("name", "ip", "ssid", "platform", "firmwareName", "firmwareVersion"))
+        }.apply {
+            assertEquals(HttpStatusCode.OK, status)
+        }
+
+        assertEquals(1, deviceMetadata.count())
+        assertEquals("1234", deviceMetadata.first().id)
+    }
+    @Test
+    fun testAddExistingDevice() = testApplication {
+
+        val deviceMetadata = mutableListOf<DeviceMetadata>()
+
+        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, "WaitingOnComcast", 12345678, "192.168.1.1", "esp", "name", "1.0.0"))
+
+        val mock = mockk<IMqttClient>()
+        every { mock.setCallback(any()) } returns Unit
+        every { mock.publish(any(), any()) } returns Unit
+
+        val service = DeviceMqttService(mock)
+        application {
+            configureSerialization()
+            configureDeviceAPI(service, "http://localhost", deviceMetadata)
+        }
+        val client = createClient {
+            install(ContentNegotiation) {
+                json()
+            }
+        }
+
+        client.post("/devices/1234"){
+            header("content-type", "application/json")
+            setBody(onlineDTO("name2", "ip2", "ssid2", "platform2", "firmwareName2", "firmwareVersion2"))
+        }.apply {
+            assertEquals(HttpStatusCode.OK, status)
+        }
+
+        assertEquals(1, deviceMetadata.count())
+        assertEquals("1234", deviceMetadata.first().id)
+        assertEquals("name2", deviceMetadata.first().name)
+    }
+    @Test
+    fun testDeleteDevice() = testApplication {
+
+        val deviceMetadata = mutableListOf<DeviceMetadata>()
+
+        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, "WaitingOnComcast", 12345678, "192.168.1.1", "esp", "name", "1.0.0"))
+
+        val mock = mockk<IMqttClient>()
+        every { mock.setCallback(any()) } returns Unit
+        every { mock.publish(any(), any()) } returns Unit
+
+        val service = DeviceMqttService(mock)
+        application {
+            configureSerialization()
+            configureDeviceAPI(service, "http://localhost", deviceMetadata)
+        }
+        val client = createClient {
+            install(ContentNegotiation) {
+                json()
+            }
+        }
+
+        client.delete("/devices/1234"){
+        }.apply {
+            assertEquals(HttpStatusCode.OK, status)
+        }
+
+        assertEquals(0, deviceMetadata.count())
+    }
+    @Test
+    fun testDeleteNonExistantDevice() = testApplication {
+
+        val deviceMetadata = mutableListOf<DeviceMetadata>()
+
+        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, "WaitingOnComcast", 12345678, "192.168.1.1", "esp", "name", "1.0.0"))
+
+        val mock = mockk<IMqttClient>()
+        every { mock.setCallback(any()) } returns Unit
+        every { mock.publish(any(), any()) } returns Unit
+
+        val service = DeviceMqttService(mock)
+        application {
+            configureSerialization()
+            configureDeviceAPI(service, "http://localhost", deviceMetadata)
+        }
+        val client = createClient {
+            install(ContentNegotiation) {
+                json()
+            }
+        }
+
+        client.delete("/devices/absdef"){
+        }.apply {
+            assertEquals(HttpStatusCode.NotFound, status)
+        }
+
+        assertEquals(1, deviceMetadata.count())
     }
 }
