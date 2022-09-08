@@ -27,5 +27,12 @@ export function FirmwareList(props : FirmwareListProps) {
         {state.firmware.map((f,i) =>
             <ItemRow key={i} firmware={f}></ItemRow>
         )}
+        <div className={"add-new-firmware"}>
+            <form>
+                <input id="firmwareFile" type={"file"} />
+                <input type={"submit"}/>
+            </form>
+
+        </div>
     </div>
 }

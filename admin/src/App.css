@@ -1,27 +1,62 @@
 .App {
-  text-align: center;
   display: flex;
 }
 .sidebar {
   height: 100vh;
   width: 10vw;
+  background: #dddddd;
+  display: flex;
+  flex-direction: column;
 }
+
+.sidebar header {
+  height:80px;
+  background: #bbbbbb;
+}
+
 .sidebarRow {
-  height:50px;
+  height:70px;
+  display:flex;
+  justify-content: center;
+  align-items: center;
+}
+.sidebarRow:hover {
+  background:#aaaaaa;
+}
+.content header {
+  height:80px;
 }
 .content {
   width:100%;
   height:100vh;
 }
 .firmwareList {
-  height:100%;
+}
+.add-new-firmware {
+  margin: 16px;
+  padding: 16px;
 }
 .itemRow {
+  margin:16px;
+  padding:16px;
   display: flex;
+  background: antiquewhite;
 }
 .itemRow .metadata{
   display:flex;
   flex-direction: column;
   width: 100px;
   align-content: start;
+}
+
+.itemRow .title-container {
+  display: flex;
+}
+
+.itemRow .title {
+  padding: 4px 4px 4px 0px;
+}
+.itemRow .subtitle {
+  padding: 4px;
+  color: #777777;
 }

@@ -9,11 +9,13 @@ function App() {
   return (
     <div className="App">
         <div className={"sidebar"}>
+            <header></header>
             <div className={"sidebarRow"}>Firmwares</div>
             <div className={"sidebarRow"}>Devices</div>
         </div>
 
         <div className={"content"}>
+            <header></header>
             <FirmwareList/>
         </div>
     </div>
