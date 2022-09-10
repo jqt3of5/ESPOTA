@@ -14,26 +14,30 @@ import tech.equationoftime.models.FirmwareMetadata
 import java.nio.file.Files
 import kotlin.io.path.Path
 
-fun Application.configureFirmwareAPI(firmwareMetadatas: MutableList<FirmwareMetadata>) {
+fun Application.configureFirmwareAPI(families : MutableList<String>, firmwareMetadatas: MutableList<FirmwareMetadata>) {
 
     routing {
-        //Get all firmwares
-        get("/firmware") {
+        //Get existing families of firmware
+        get("/families") {
 
-            val name = call.request.queryParameters["name"]
-            val version = call.request.queryParameters["version"]
-            val platform = call.request.queryParameters["platform"]
+            call.respond(families)
+        }
+
+        post ("/families/{family}") {
+            val family = call.parameters["family"]
+            if (family != null)
+            {
+                families.add(family)
+            }
+            call.respond("")
+        }
+
+        //get firmware that belongs to this family
+        get("/firmware/{name}") {
+            val name = call.parameters["name"]
 
             val metadatas = firmwareMetadatas.filter {
                 if (name != null && name != it.name)
-                {
-                    return@filter false
-                }
-                if (version != null && version != it.version)
-                {
-                    return@filter false
-                }
-                if (platform != null && platform != it.platform)
                 {
                     return@filter false
                 }
@@ -41,14 +45,14 @@ fun Application.configureFirmwareAPI(firmwareMetadatas: MutableList<FirmwareMeta
             }
             call.respond(metadatas)
         }
-        
+
         //Upload new firmware version
-        post("/firmware/{platform}/{name}/{version}") {
+        post("/firmware/{name}/{version}/{platform}") {
             val name = call.parameters["name"] ?: ""
             val version = call.parameters["version"] ?: ""
             val platform = call.parameters["platform"] ?: ""
-            val description = call.receiveText()
 
+            //Does this firmware already exist?
             if (firmwareMetadatas.find {
                 it.name == name && it.version == version && it.platform == platform
                 } != null)
@@ -56,10 +60,9 @@ fun Application.configureFirmwareAPI(firmwareMetadatas: MutableList<FirmwareMeta
                 call.respond(HttpStatusCode.BadRequest)
                 return@post
             }
-            //TODO: Validation Logic for version numbers/sorting/ids/etc
-            val uuid = uuid4().toString()
-            firmwareMetadatas.add(FirmwareMetadata(uuid, name, version, platform, description))
 
+            val uuid = uuid4().toString()
+            var description = ""
             call.receiveMultipart().forEachPart {
                 when(it) {
                     is PartData.FileItem -> {
@@ -73,14 +76,24 @@ fun Application.configureFirmwareAPI(firmwareMetadatas: MutableList<FirmwareMeta
                         val file = java.io.File(Path(firmwareRoot, uuid).toString())
                         file.writeBytes(bytes)
                     }
+                    is PartData.FormItem -> {
+                        when (it.name)
+                        {
+                            "description" -> {
+                                description = it.value
+                            }
+                        }
+                    }
                     else -> {}
                 }
             }
 
+            //TODO: Validation Logic for version numbers/sorting/ids/etc
+            firmwareMetadatas.add(FirmwareMetadata(uuid, name, version, platform, description))
             call.respond(uuid)
         }
         //Get metadata
-        get ("/firmware/{platform}/{name}/{version}/metadata") {
+        get ("/firmware/{name}/{version}/{platform}") {
             val name = call.parameters["name"] ?: ""
             val version = call.parameters["version"] ?: ""
 

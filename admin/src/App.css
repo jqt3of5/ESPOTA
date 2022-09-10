@@ -30,33 +30,49 @@
   width:100%;
   height:100vh;
 }
-.firmwareList {
+.firmware-container{
+  display:flex;
+}
+.family-list {
+  display:flex;
+  flex-direction: column;
+}
+.family-item {
+  margin: 12px;
+  padding: 12px;
+}
+.family-item:hover {
+ background: #dddddd;
+}
+.firmware-list{
+  display:flex;
+  flex-direction: column;
 }
 .add-new-firmware {
   margin: 16px;
   padding: 16px;
 }
-.itemRow {
-  margin:16px;
-  padding:16px;
+.firmware-list .itemRow {
+  margin:12px;
+  padding:12px;
   display: flex;
   background: antiquewhite;
 }
-.itemRow .metadata{
+.firmware-list .itemRow .metadata{
   display:flex;
   flex-direction: column;
   width: 100px;
   align-content: start;
 }
 
-.itemRow .title-container {
+.firmware-list .itemRow .title-container {
   display: flex;
 }
 
-.itemRow .title {
+.firmware-list .itemRow .title {
   padding: 4px 4px 4px 0px;
 }
-.itemRow .subtitle {
+.firmware-list .itemRow .subtitle {
   padding: 4px;
   color: #777777;
 }

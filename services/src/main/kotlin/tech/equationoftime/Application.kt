@@ -18,6 +18,13 @@ val firmwareRoot = "firmwares"
 fun main() {
 
     var deviceMetadata = mutableListOf<DeviceMetadata>()
+    deviceMetadata.add(DeviceMetadata("abcdef", "Main Device", true, "waitingoncomcast", 123456, "10.0.0.2", "ESP", "workshop-controller", "1.0.0"))
+    deviceMetadata.add(DeviceMetadata("abcdefqwe", "Main Device2", true, "waitingoncomcast", 123456, "10.0.0.2", "ESP", "workshop-controller", "1.0.0"))
+    deviceMetadata.add(DeviceMetadata("abcdasdfc", "Main Device2", true, "waitingoncomcast", 123456, "10.0.0.2", "ESP", "workshop-controller", "1.0.0"))
+
+    var firmwareFamilies = mutableListOf<String>()
+    firmwareFamilies.add("name")
+    firmwareFamilies.add("name2")
     var firmwareMetadata = mutableListOf<FirmwareMetadata>()
 
     firmwareMetadata.add(FirmwareMetadata("1234", "name", "1.0.0", "esp", ""))
@@ -41,6 +48,6 @@ fun main() {
         configureSerialization()
         val mqttService = configureMqttService(firmwareHttpClient, client)
         configureDeviceAPI(mqttService, "http://localhost:80/", deviceMetadata)
-        configureFirmwareAPI(firmwareMetadata)
+        configureFirmwareAPI(firmwareFamilies, firmwareMetadata)
     }.start(wait = true)
 }
