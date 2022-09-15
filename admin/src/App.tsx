@@ -1,5 +1,4 @@
 import React, {useEffect, useState} from 'react';
-import logo from './logo.svg';
 import './App.css';
 import {FirmwareList} from "./Views/FirmwaresList";
 import {DeviceList} from "./Views/DeviceList";
