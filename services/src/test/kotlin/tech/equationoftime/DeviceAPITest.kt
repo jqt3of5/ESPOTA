@@ -12,9 +12,13 @@ import io.ktor.utils.io.core.*
 import kotlinx.serialization.*
 import org.eclipse.paho.client.mqttv3.IMqttClient
 import org.eclipse.paho.client.mqttv3.MqttMessage
+import org.ktorm.database.Database
+import org.ktorm.entity.add
+import org.ktorm.entity.toList
 import tech.equationoftime.models.*
 import tech.equationoftime.plugins.*
 import tech.equationoftime.services.*
+import tech.equationoftime.tables.*
 import kotlin.test.*
 import kotlin.text.toByteArray
 
@@ -22,8 +26,24 @@ class DeviceAPITest {
     @Test
     fun testDevices() = testApplication {
 
-        val deviceMetadata = mutableListOf<DeviceMetadata>()
-        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, "ssid", 12345678, "192.168.1.1", "esp", "name", "1.0.0"))
+        var database = Database.connect("jdbc:sqlite::memory:")
+        database.devices.add(DeviceMetadataEntity {
+            name = "main-device"
+            online = true
+            ssid = "ssid"
+            lastMessage = 12345678
+            ip = "192.168.1.1"
+            platform = "esp"
+            firmware = FirmwareEntity {
+               firmwareId = "firmware1"
+               family = FirmwareFamilyEntity {
+                   name = "firmwareFamily1"
+                }
+                version = "1.0.0"
+                platform = "esp"
+                description = "description"
+            }
+        })
 
         val mock = mockk<IMqttClient>()
         every { mock.setCallback(any()) } returns Unit
@@ -31,12 +51,12 @@ class DeviceAPITest {
         val service = DeviceMqttService(mock)
         application {
             configureSerialization()
-            configureDeviceAPI(service, "http://localhost", deviceMetadata)
+            configureDeviceAPI(service, "http://localhost", database)
         }
 
         client.get("/devices").apply {
             assertEquals(HttpStatusCode.OK, status)
-            val list = Json.decodeFromString<List<DeviceMetadata>>(bodyAsText())
+            val list = Json.decodeFromString<List<DeviceMetadataDTO>>(bodyAsText())
             assertEquals(1, list.count())
         }
     }
@@ -44,10 +64,61 @@ class DeviceAPITest {
     @Test
     fun testDeviceFilter() = testApplication {
 
-        val deviceMetadata = mutableListOf<DeviceMetadata>()
-        deviceMetadata.add(DeviceMetadata("1234", "main-device", true,"ssid",  12345678, "192.168.1.1", "esp", "name1", "1.0.0"))
-        deviceMetadata.add(DeviceMetadata("1235", "main-device2", true, "ssid", 12345678, "192.168.1.2", "esp", "name", "1.0.0"))
-        deviceMetadata.add(DeviceMetadata("1236", "main-device3", true, "ssid", 12345678, "192.168.1.3", "nano", "name1", "1.0.1"))
+        val deviceMetadatumDTOS = mutableListOf<DeviceMetadataDTO>()
+        deviceMetadatumDTOS.add(DeviceMetadataDTO("1236", "main-device3", true, "ssid", 12345678, "192.168.1.3", "nano", "name1", "1.0.1"))
+
+        var database = Database.connect("jdbc:sqlite::memory:")
+        database.devices.add(DeviceMetadataEntity {
+            name = "main-device"
+            online = true
+            ssid = "ssid"
+            lastMessage = 12345678
+            ip = "192.168.1.1"
+            platform = "esp"
+            firmware = FirmwareEntity {
+                firmwareId = "firmware1"
+                family = FirmwareFamilyEntity {
+                    name = "firmwareFamily1"
+                }
+                version = "1.0.0"
+                platform = "esp"
+                description = "description"
+            }
+        })
+        database.devices.add(DeviceMetadataEntity {
+            name = "main-device2"
+            online = true
+            ssid = "ssid"
+            lastMessage = 12345678
+            ip = "192.168.1.2"
+            platform = "esp"
+            firmware = FirmwareEntity {
+                firmwareId = "firmware1"
+                family = FirmwareFamilyEntity {
+                    name = "firmwareFamily1"
+                }
+                version = "1.0.1"
+                platform = "esp"
+                description = "description"
+            }
+        })
+        database.devices.add(DeviceMetadataEntity {
+            name = "main-device2"
+            online = true
+            ssid = "ssid"
+            lastMessage = 12345678
+            ip = "192.168.1.3"
+            platform = "esp"
+            firmware = FirmwareEntity {
+                firmwareId = "firmware2"
+                family = FirmwareFamilyEntity {
+                    name = "firmwareFamily1"
+                }
+                version = "1.0.0"
+                platform = "esp"
+                description = "description"
+            }
+        })
 
         val mock = mockk<IMqttClient>()
         every { mock.setCallback(any()) } returns Unit
@@ -55,22 +126,22 @@ class DeviceAPITest {
         val service = DeviceMqttService(mock)
         application {
             configureSerialization()
-            configureDeviceAPI(service, "http://localhost", deviceMetadata)
+            configureDeviceAPI(service, "http://localhost", database)
         }
 
         client.get("/devices?firmwareName=name").apply {
             assertEquals(HttpStatusCode.OK, status)
-            val list = Json.decodeFromString<List<DeviceMetadata>>(bodyAsText())
+            val list = Json.decodeFromString<List<DeviceMetadataDTO>>(bodyAsText())
             assertEquals(1, list.count())
         }
         client.get("/devices?firmwareVersion=1.0.0").apply {
             assertEquals(HttpStatusCode.OK, status)
-            val list = Json.decodeFromString<List<DeviceMetadata>>(bodyAsText())
+            val list = Json.decodeFromString<List<DeviceMetadataDTO>>(bodyAsText())
             assertEquals(2, list.count())
         }
         client.get("/devices?platform=esp").apply {
             assertEquals(HttpStatusCode.OK, status)
-            val list = Json.decodeFromString<List<DeviceMetadata>>(bodyAsText())
+            val list = Json.decodeFromString<List<DeviceMetadataDTO>>(bodyAsText())
             assertEquals(2, list.count())
         }
     }
@@ -78,8 +149,24 @@ class DeviceAPITest {
     @Test
     fun testReboot() = testApplication {
 
-        val deviceMetadata = mutableListOf<DeviceMetadata>()
-        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, "ssid", 12345678, "192.168.1.1", "esp", "name", "1.0.0"))
+        var database = Database.connect("jdbc:sqlite::memory:")
+        database.devices.add(DeviceMetadataEntity {
+            name = "main-device2"
+            online = true
+            ssid = "ssid"
+            lastMessage = 12345678
+            ip = "192.168.1.2"
+            platform = "esp"
+            firmware = FirmwareEntity {
+                firmwareId = "firmware1"
+                family = FirmwareFamilyEntity {
+                    name = "firmwareFamily1"
+                }
+                version = "1.0.1"
+                platform = "esp"
+                description = "description"
+            }
+        })
 
         val mock = mockk<IMqttClient>()
         every { mock.setCallback(any()) } returns Unit
@@ -89,7 +176,7 @@ class DeviceAPITest {
         val service = DeviceMqttService(mock)
         application {
             configureSerialization()
-            configureDeviceAPI(service, "http://localhost", deviceMetadata)
+            configureDeviceAPI(service, "http://localhost", database)
         }
 
         client.post("/devices/1234/reboot").apply {
@@ -102,8 +189,24 @@ class DeviceAPITest {
     @Test
     fun testWifi() = testApplication {
 
-        val deviceMetadata = mutableListOf<DeviceMetadata>()
-        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, "ssid", 12345678, "192.168.1.1", "esp", "name", "1.0.0"))
+        var database = Database.connect("jdbc:sqlite::memory:")
+        database.devices.add(DeviceMetadataEntity {
+            name = "main-device2"
+            online = true
+            ssid = "ssid"
+            lastMessage = 12345678
+            ip = "192.168.1.2"
+            platform = "esp"
+            firmware = FirmwareEntity {
+                firmwareId = "firmware1"
+                family = FirmwareFamilyEntity {
+                    name = "firmwareFamily1"
+                }
+                version = "1.0.1"
+                platform = "esp"
+                description = "description"
+            }
+        })
 
         val mock = mockk<IMqttClient>()
         every { mock.setCallback(any()) } returns Unit
@@ -113,7 +216,7 @@ class DeviceAPITest {
         val service = DeviceMqttService(mock)
         application {
             configureSerialization()
-            configureDeviceAPI(service, "http://localhost", deviceMetadata)
+            configureDeviceAPI(service, "http://localhost", database)
         }
         val client = createClient {
             install(ContentNegotiation) {
@@ -136,9 +239,24 @@ class DeviceAPITest {
     @Test
     fun testFlash() = testApplication {
 
-        val deviceMetadata = mutableListOf<DeviceMetadata>()
-        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, "ssid", 12345678, "192.168.1.1", "esp", "name", "1.0.0"))
-
+        var database = Database.connect("jdbc:sqlite::memory:")
+        database.devices.add(DeviceMetadataEntity {
+            name = "main-device2"
+            online = true
+            ssid = "ssid"
+            lastMessage = 12345678
+            ip = "192.168.1.2"
+            platform = "esp"
+            firmware = FirmwareEntity {
+                firmwareId = "firmware1"
+                family = FirmwareFamilyEntity {
+                    name = "firmwareFamily1"
+                }
+                version = "1.0.1"
+                platform = "esp"
+                description = "description"
+            }
+        })
         val mock = mockk<IMqttClient>()
         every { mock.setCallback(any()) } returns Unit
         every { mock.publish(any(), any()) } returns Unit
@@ -146,7 +264,7 @@ class DeviceAPITest {
         val service = DeviceMqttService(mock)
         application {
             configureSerialization()
-            configureDeviceAPI(service, "http://localhost", deviceMetadata)
+            configureDeviceAPI(service, "http://localhost", database)
         }
         val client = createClient {
             install(ContentNegotiation) {
@@ -168,9 +286,24 @@ class DeviceAPITest {
     @Test
     fun testMdns() = testApplication {
 
-        val deviceMetadata = mutableListOf<DeviceMetadata>()
-        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, "WaitingOnComcast", 12345678, "192.168.1.1", "esp", "name", "1.0.0"))
-
+        var database = Database.connect("jdbc:sqlite::memory:")
+        database.devices.add(DeviceMetadataEntity {
+            name = "main-device2"
+            online = true
+            ssid = "ssid"
+            lastMessage = 12345678
+            ip = "192.168.1.2"
+            platform = "esp"
+            firmware = FirmwareEntity {
+                firmwareId = "firmware1"
+                family = FirmwareFamilyEntity {
+                    name = "firmwareFamily1"
+                }
+                version = "1.0.1"
+                platform = "esp"
+                description = "description"
+            }
+        })
         val mock = mockk<IMqttClient>()
         every { mock.setCallback(any()) } returns Unit
         every { mock.publish(any(), any()) } returns Unit
@@ -178,7 +311,7 @@ class DeviceAPITest {
         val service = DeviceMqttService(mock)
         application {
             configureSerialization()
-            configureDeviceAPI(service, "http://localhost", deviceMetadata)
+            configureDeviceAPI(service, "http://localhost", database)
         }
         val client = createClient {
             install(ContentNegotiation) {
@@ -201,7 +334,7 @@ class DeviceAPITest {
     @Test
     fun testAddDevice() = testApplication {
 
-        val deviceMetadata = mutableListOf<DeviceMetadata>()
+        var database = Database.connect("jdbc:sqlite::memory:")
 
         val mock = mockk<IMqttClient>()
         every { mock.setCallback(any()) } returns Unit
@@ -210,7 +343,7 @@ class DeviceAPITest {
         val service = DeviceMqttService(mock)
         application {
             configureSerialization()
-            configureDeviceAPI(service, "http://localhost", deviceMetadata)
+            configureDeviceAPI(service, "http://localhost", database)
         }
         val client = createClient {
             install(ContentNegotiation) {
@@ -225,15 +358,32 @@ class DeviceAPITest {
             assertEquals(HttpStatusCode.OK, status)
         }
 
-        assertEquals(1, deviceMetadata.count())
-        assertEquals("1234", deviceMetadata.first().id)
+        assertEquals(1, database.devices.toList().count())
+        assertEquals("1234", database.devices.toList().first().id)
     }
     @Test
     fun testAddExistingDevice() = testApplication {
 
-        val deviceMetadata = mutableListOf<DeviceMetadata>()
+        val deviceMetadatumDTOS = mutableListOf<DeviceMetadataDTO>()
 
-        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, "WaitingOnComcast", 12345678, "192.168.1.1", "esp", "name", "1.0.0"))
+        var database = Database.connect("jdbc:sqlite::memory:")
+        database.devices.add(DeviceMetadataEntity {
+            name = "main-device2"
+            online = true
+            ssid = "ssid"
+            lastMessage = 12345678
+            ip = "192.168.1.2"
+            platform = "esp"
+            firmware = FirmwareEntity {
+                firmwareId = "firmware1"
+                family = FirmwareFamilyEntity {
+                    name = "firmwareFamily1"
+                }
+                version = "1.0.1"
+                platform = "esp"
+                description = "description"
+            }
+        })
 
         val mock = mockk<IMqttClient>()
         every { mock.setCallback(any()) } returns Unit
@@ -242,7 +392,7 @@ class DeviceAPITest {
         val service = DeviceMqttService(mock)
         application {
             configureSerialization()
-            configureDeviceAPI(service, "http://localhost", deviceMetadata)
+            configureDeviceAPI(service, "http://localhost", database)
         }
         val client = createClient {
             install(ContentNegotiation) {
@@ -257,16 +407,31 @@ class DeviceAPITest {
             assertEquals(HttpStatusCode.OK, status)
         }
 
-        assertEquals(1, deviceMetadata.count())
-        assertEquals("1234", deviceMetadata.first().id)
-        assertEquals("name2", deviceMetadata.first().name)
+        assertEquals(1, deviceMetadatumDTOS.count())
+        assertEquals("1234", deviceMetadatumDTOS.first().id)
+        assertEquals("name2", deviceMetadatumDTOS.first().name)
     }
     @Test
     fun testDeleteDevice() = testApplication {
 
-        val deviceMetadata = mutableListOf<DeviceMetadata>()
-
-        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, "WaitingOnComcast", 12345678, "192.168.1.1", "esp", "name", "1.0.0"))
+        var database = Database.connect("jdbc:sqlite::memory:")
+        database.devices.add(DeviceMetadataEntity {
+            name = "main-device2"
+            online = true
+            ssid = "ssid"
+            lastMessage = 12345678
+            ip = "192.168.1.2"
+            platform = "esp"
+            firmware = FirmwareEntity {
+                firmwareId = "firmware1"
+                family = FirmwareFamilyEntity {
+                    name = "firmwareFamily1"
+                }
+                version = "1.0.1"
+                platform = "esp"
+                description = "description"
+            }
+        })
 
         val mock = mockk<IMqttClient>()
         every { mock.setCallback(any()) } returns Unit
@@ -275,7 +440,7 @@ class DeviceAPITest {
         val service = DeviceMqttService(mock)
         application {
             configureSerialization()
-            configureDeviceAPI(service, "http://localhost", deviceMetadata)
+            configureDeviceAPI(service, "http://localhost", database)
         }
         val client = createClient {
             install(ContentNegotiation) {
@@ -288,15 +453,29 @@ class DeviceAPITest {
             assertEquals(HttpStatusCode.OK, status)
         }
 
-        assertEquals(0, deviceMetadata.count())
+        assertEquals(0, database.devices.toList().count())
     }
     @Test
     fun testDeleteNonExistantDevice() = testApplication {
 
-        val deviceMetadata = mutableListOf<DeviceMetadata>()
-
-        deviceMetadata.add(DeviceMetadata("1234", "main-device", true, "WaitingOnComcast", 12345678, "192.168.1.1", "esp", "name", "1.0.0"))
-
+        var database = Database.connect("jdbc:sqlite::memory:")
+        database.devices.add(DeviceMetadataEntity {
+            name = "main-device2"
+            online = true
+            ssid = "ssid"
+            lastMessage = 12345678
+            ip = "192.168.1.2"
+            platform = "esp"
+            firmware = FirmwareEntity {
+                firmwareId = "firmware1"
+                family = FirmwareFamilyEntity {
+                    name = "firmwareFamily1"
+                }
+                version = "1.0.1"
+                platform = "esp"
+                description = "description"
+            }
+        })
         val mock = mockk<IMqttClient>()
         every { mock.setCallback(any()) } returns Unit
         every { mock.publish(any(), any()) } returns Unit
@@ -304,7 +483,7 @@ class DeviceAPITest {
         val service = DeviceMqttService(mock)
         application {
             configureSerialization()
-            configureDeviceAPI(service, "http://localhost", deviceMetadata)
+            configureDeviceAPI(service, "http://localhost", database)
         }
         val client = createClient {
             install(ContentNegotiation) {
@@ -317,6 +496,6 @@ class DeviceAPITest {
             assertEquals(HttpStatusCode.NotFound, status)
         }
 
-        assertEquals(1, deviceMetadata.count())
+        assertEquals(1, database.devices.toList().count())
     }
 }

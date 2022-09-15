@@ -9,53 +9,76 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.ktorm.database.Database
+import org.ktorm.dsl.eq
+import org.ktorm.entity.add
+import org.ktorm.entity.filter
+import org.ktorm.entity.find
+import org.ktorm.entity.map
 import tech.equationoftime.firmwareRoot
-import tech.equationoftime.models.FirmwareMetadata
+import tech.equationoftime.models.FirmwareMetadataDTO
+import tech.equationoftime.tables.FirmwareEntity
+import tech.equationoftime.tables.FirmwareFamilyEntity
+import tech.equationoftime.tables.FirmwareFamilyTable.name
+import tech.equationoftime.tables.families
+import tech.equationoftime.tables.firmwares
 import java.nio.file.Files
 import kotlin.io.path.Path
 
-fun Application.configureFirmwareAPI(families : MutableList<String>, firmwareMetadatas: MutableList<FirmwareMetadata>) {
+fun Application.configureFirmwareAPI(database : Database) {
 
     routing {
-        //Get existing families of firmware
-        get("/families") {
+        //Get existing firmwares of firmware
+        get("/firmwares") {
 
+            val families = database.families.map {it.name}
             call.respond(families)
         }
 
-        post ("/families/{family}") {
-            val family = call.parameters["family"]
-            if (family != null)
+        post ("/firmwares/{firmware}") {
+            val firmwareFamily = call.parameters["firmware"]
+            if (firmwareFamily != null)
             {
-                families.add(family)
+                database.families.add(FirmwareFamilyEntity {
+                    name = firmwareFamily
+                })
             }
             call.respond("")
         }
 
-        //get firmware that belongs to this family
-        get("/firmware/{name}") {
-            val name = call.parameters["name"]
+        //get firmware that belongs to this firmware family
+        get("/firmware/{family}") {
+            val family = call.parameters["family"] as String
 
-            val metadatas = firmwareMetadatas.filter {
-                if (name != null && name != it.name)
-                {
-                    return@filter false
-                }
-                return@filter true
+            database.families.find {it.name eq family}?.let {familyEntity ->
+                val firmwares = database.firmwares.filter {it.familyId eq familyEntity.id}
+
+                call.respond(firmwares.map {
+                    FirmwareMetadataDTO(it.firmwareId, it.family.name, it.version, it.platform, it.description)
+                })
             }
-            call.respond(metadatas)
         }
 
         //Upload new firmware version
-        post("/firmware/{name}/{version}/{platform}") {
-            val name = call.parameters["name"] ?: ""
+        post("/firmware/{family}/{version}/{platform}") {
+            val familyName = call.parameters["familyName"] ?: ""
             val version = call.parameters["version"] ?: ""
             val platform = call.parameters["platform"] ?: ""
 
+            val familyEntity = database.families.find {it.name eq familyName}
+            if (familyEntity == null)
+            {
+                call.respond(HttpStatusCode.NotFound)
+                return@post
+            }
+
+            val firmware = database.firmwares
+                .filter {it.familyId eq familyEntity.id}
+                .filter {it.version eq version}
+                .find {it.platform eq platform}
+
             //Does this firmware already exist?
-            if (firmwareMetadatas.find {
-                it.name == name && it.version == version && it.platform == platform
-                } != null)
+            if (firmware != null)
             {
                 call.respond(HttpStatusCode.BadRequest)
                 return@post
@@ -89,17 +112,31 @@ fun Application.configureFirmwareAPI(families : MutableList<String>, firmwareMet
             }
 
             //TODO: Validation Logic for version numbers/sorting/ids/etc
-            firmwareMetadatas.add(FirmwareMetadata(uuid, name, version, platform, description))
+            database.firmwares.add(FirmwareEntity {
+                firmwareId = uuid
+                family = familyEntity
+                this.version = version
+                this.description = description
+                this.platform = platform
+            })
             call.respond(uuid)
         }
-        //Get metadata
-        get ("/firmware/{name}/{version}/{platform}") {
-            val name = call.parameters["name"] ?: ""
-            val version = call.parameters["version"] ?: ""
 
-            val metadata = firmwareMetadatas.find {
-                return@find it.version == version && it.name == name
-            } ?: return@get call.respond(HttpStatusCode.NotFound,"firmware not found for $name@$version")
+        //Get metadata
+        get ("/firmware/{family}/{version}/{platform}") {
+            val family = call.parameters["family"] ?: ""
+            val version = call.parameters["version"] ?: ""
+            val platform = call.parameters["platform"] ?: ""
+
+            val familyEntity = database.families
+                .find {it.name eq family }
+                ?: return@get call.respond(HttpStatusCode.NotFound)
+
+            val metadata = database.firmwares
+                .filter {it.familyId eq familyEntity.id}
+                .filter {it.version eq version}
+                .find {it.platform eq platform}
+                ?: return@get call.respond(HttpStatusCode.NotFound,"firmware not found for $family@$version")
 
             call.respond(metadata)
         }

@@ -5,8 +5,18 @@ import io.ktor.server.routing.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
-import tech.equationoftime.models.DeviceMetadata
+import jdk.incubator.vector.VectorOperators.Binary
+import org.ktorm.database.Database
+import org.ktorm.dsl.eq
+import org.ktorm.entity.*
+import org.ktorm.expression.BinaryExpression
+import org.ktorm.schema.ColumnDeclaring
+import tech.equationoftime.models.DeviceMetadataDTO
 import tech.equationoftime.services.DeviceMqttService
+import tech.equationoftime.tables.DeviceMetadataEntity
+import tech.equationoftime.tables.devices
+import tech.equationoftime.tables.families
+import tech.equationoftime.tables.firmwares
 import java.time.Instant
 import java.util.Date
 
@@ -18,7 +28,7 @@ data class wifiDTO (val ssid: String, val psk : String)
 data class mdnsDTO (val name: String)
 @kotlinx.serialization.Serializable
 data class onlineDTO(val name: String, val ip: String, val ssid : String, val platform : String, val firmwareName : String, val firmwareVersion : String)
-fun Application.configureDeviceAPI(service : DeviceMqttService?, firmwareAPIURL : String, deviceMetadatas : MutableList<DeviceMetadata>) {
+fun Application.configureDeviceAPI(service : DeviceMqttService?, firmwareAPIURL : String, database : Database) {
 
     routing {
 
@@ -27,16 +37,18 @@ fun Application.configureDeviceAPI(service : DeviceMqttService?, firmwareAPIURL 
             val version = call.request.queryParameters["firmwareVersion"]
             val firmwareName = call.request.queryParameters["firmwareName"]
 
-            val metadatas = deviceMetadatas.filter {
+            val devices = database.devices.toList()
+
+            val metadatas = devices.filter {
                 if (platform != null && platform != it.platform)
                 {
                     return@filter false
                 }
-                if (version != null && version != it.firmwareVersion)
+                if (version != null && version != it.firmware.version)
                 {
                     return@filter false
                 }
-                if (firmwareName != null && firmwareName != it.firmwareName)
+                if (firmwareName != null && firmwareName != it.firmware.family.name)
                 {
                     return@filter false
                 }
@@ -47,48 +59,37 @@ fun Application.configureDeviceAPI(service : DeviceMqttService?, firmwareAPIURL 
         post ("/devices/{id}") {
             val dto = call.receive<onlineDTO>()
             val id = call.parameters["id"] ?: ""
-            //see if we already have it
-            val metadata = deviceMetadatas.find {
-                it.id == id
-            //if we do, remove it from the list
-            }?.also {
-               deviceMetadatas.remove(it)
-            //if we do, copy it and update values
-            }?.copy(
-                name = dto.name,
-                online = true,
-                ssid = dto.ssid,
-                lastMessage = Instant.now().epochSecond,
-                ip = dto.ip,
-                platform = dto.platform,
-                firmwareName = dto.firmwareName,
-                firmwareVersion = dto.firmwareVersion
-            //if we don't, create a new one
-            ) ?: DeviceMetadata(
-                id,
-                dto.name,
-                true,
-                dto.ssid,
-                Instant.now().epochSecond,
-                dto.ip,
-                dto.platform,
-                dto.firmwareName,
-                dto.firmwareVersion
-            )
 
-            //add or update
-            deviceMetadatas.add(metadata)
+            val family = database.families.find { it.name eq dto.firmwareName } ?: return@post call.respond(HttpStatusCode.NotFound)
+            val firmwareEntity = database.firmwares
+                .filter { it.familyId eq  family.id}
+                .filter { it.version eq dto.firmwareVersion}
+                .find {it.platform eq dto.platform} ?: return@post call.respond(HttpStatusCode.NotFound)
+
+            val device = (database.devices.find { it.deviceId eq id }
+                ?: DeviceMetadataEntity())
+                .apply {
+                    name = dto.name
+                    online = true
+                    ssid = dto.ssid
+                    lastMessage = Instant.now().epochSecond
+                    ip = dto.ip
+                    platform = dto.platform
+                    firmware = firmwareEntity
+            }
+
+            //TODO: Test doesn't exist
+            database.devices.update(device)
             call.respond("")
         }
 
         delete("/devices/{id}") {
             //TODO: Check that device is actually under our control and online
             val id = call.parameters["id"] ?: ""
-            if (!deviceMetadatas.removeIf {
-                it.id == id
-            }) {
-                call.respond(HttpStatusCode.NotFound)
-            }
+
+            database.devices.find { it.deviceId eq id } ?: return@delete call.respond(HttpStatusCode.NotFound)
+
+            database.devices.removeIf { it.deviceId eq id }
             call.respond(HttpStatusCode.OK)
         }
 
