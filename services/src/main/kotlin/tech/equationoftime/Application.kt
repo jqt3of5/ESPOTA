@@ -8,8 +8,7 @@ import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import org.eclipse.paho.client.mqttv3.MqttClient
-import tech.equationoftime.models.DeviceMetadata
-import tech.equationoftime.models.FirmwareMetadata
+import org.ktorm.database.Database
 import tech.equationoftime.plugins.*
 import tech.equationoftime.routes.configureMqttService
 
@@ -17,19 +16,7 @@ val firmwareRoot = "firmwares"
 
 fun main() {
 
-    var deviceMetadata = mutableListOf<DeviceMetadata>()
-    deviceMetadata.add(DeviceMetadata("abcdef", "Main Device", true, "waitingoncomcast", 123456, "10.0.0.2", "ESP", "workshop-controller", "1.0.0"))
-    deviceMetadata.add(DeviceMetadata("abcdefqwe", "Main Device2", true, "waitingoncomcast", 123456, "10.0.0.2", "ESP", "workshop-controller", "1.0.0"))
-    deviceMetadata.add(DeviceMetadata("abcdasdfc", "Main Device2", true, "waitingoncomcast", 123456, "10.0.0.2", "ESP", "workshop-controller", "1.0.0"))
-
-    var firmwareFamilies = mutableListOf<String>()
-    firmwareFamilies.add("name")
-    firmwareFamilies.add("name2")
-    var firmwareMetadata = mutableListOf<FirmwareMetadata>()
-
-    firmwareMetadata.add(FirmwareMetadata("1234", "name", "1.0.0", "esp", ""))
-    firmwareMetadata.add(FirmwareMetadata("12345", "name", "1.0.1", "esp", ""))
-    firmwareMetadata.add(FirmwareMetadata("12346", "name2", "1.0.1", "esp", ""))
+    var database = Database.connect("jdbc:sqlite:main.db")
 
     val client = MqttClient("tcp://tiltpi.equationoftime.tech:1883","esp-ota-manager")
     val firmwareHttpClient = HttpClient(CIO) {
@@ -47,7 +34,7 @@ fun main() {
         configureTemplating()
         configureSerialization()
         val mqttService = configureMqttService(firmwareHttpClient, client)
-        configureDeviceAPI(mqttService, "http://localhost:80/", deviceMetadata)
-        configureFirmwareAPI(firmwareFamilies, firmwareMetadata)
+        configureDeviceAPI(mqttService, "http://localhost:80/", database)
+        configureFirmwareAPI(database)
     }.start(wait = true)
 }
