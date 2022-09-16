@@ -19,14 +19,13 @@ fun <E : Entity<E>>Database.createTable(table : Table<E>) {
         {
             append("${column.name}")
         }
-        append(") ")
-
-        append(");")
+        append(") );")
     }
 
     this.useConnection {
         it.prepareStatement(tableSchema).use {
             it.execute()
         }
+        it.close()
     }
 }

@@ -19,7 +19,6 @@ import tech.equationoftime.firmwareRoot
 import tech.equationoftime.models.FirmwareMetadataDTO
 import tech.equationoftime.tables.FirmwareEntity
 import tech.equationoftime.tables.FirmwareFamilyEntity
-import tech.equationoftime.tables.FirmwareFamilyTable.name
 import tech.equationoftime.tables.families
 import tech.equationoftime.tables.firmwares
 import java.nio.file.Files

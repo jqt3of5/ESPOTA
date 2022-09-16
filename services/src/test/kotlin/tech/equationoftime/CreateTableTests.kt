@@ -6,12 +6,8 @@ import org.ktorm.dsl.insert
 import org.ktorm.dsl.select
 import org.ktorm.entity.Entity
 import org.ktorm.schema.*
-import tech.equationoftime.tables.DeviceTable.bindTo
-import tech.equationoftime.tables.DeviceTable.primaryKey
-import tech.equationoftime.tables.DeviceTable.references
-import tech.equationoftime.tables.FirmwareEntity
-import tech.equationoftime.tables.FirmwareTable
 import tech.equationoftime.tables.createTable
+import java.sql.DriverManager
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -34,7 +30,8 @@ class CreateTableTests {
 
     @Test
     fun testCreateTable() {
-        val database = Database.connect("jdbc:sqlite::memory:")
+        val keepAlive = DriverManager.getConnection("jdbc:sqlite:file:test?mode=memory&cache=shared")
+        val database = Database.connect("jdbc:sqlite:file:test?mode=memory&cache=shared")
         database.createTable(TestTable)
         database.insert(TestTable) {
             set(it.columnBoolean, true)

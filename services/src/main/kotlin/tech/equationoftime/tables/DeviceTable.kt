@@ -9,7 +9,8 @@ val Database.devices get() = this.sequenceOf(DeviceTable)
 
 interface DeviceMetadataEntity : Entity<DeviceMetadataEntity> {
     companion object : Entity.Factory<DeviceMetadataEntity>()
-    val id : String
+    val id : Int
+    var deviceId : String
     var name : String
     var online : Boolean
     var ssid : String
@@ -20,13 +21,13 @@ interface DeviceMetadataEntity : Entity<DeviceMetadataEntity> {
 }
 
 object DeviceTable : Table<DeviceMetadataEntity>("t_device") {
-    val id = int("id").primaryKey()
-    var deviceId =varchar("deviceId").bindTo { it.id}
+    val id = int("id").primaryKey().bindTo { it.id }
+    var deviceId =varchar("deviceId").bindTo { it.deviceId}
     var name = varchar("name").bindTo { it.name }
     var online = boolean("online").bindTo { it.online }
     var ssid = varchar("ssid").bindTo { it.ssid }
     var lastMessage = long("lastMessage").bindTo { it.lastMessage }
     var ip = varchar("ip").bindTo { it.ip }
     var platform = varchar("platform").bindTo { it.platform }
-    var firmwareId = int("firmwareId").references(FirmwareTable) { it.firmware }
+    var firmwareId = int("firmwareId").references(FirmwareVersionTable) { it.firmware }
 }

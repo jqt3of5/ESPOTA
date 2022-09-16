@@ -13,10 +13,7 @@ import org.ktorm.expression.BinaryExpression
 import org.ktorm.schema.ColumnDeclaring
 import tech.equationoftime.models.DeviceMetadataDTO
 import tech.equationoftime.services.DeviceMqttService
-import tech.equationoftime.tables.DeviceMetadataEntity
-import tech.equationoftime.tables.devices
-import tech.equationoftime.tables.families
-import tech.equationoftime.tables.firmwares
+import tech.equationoftime.tables.*
 import java.time.Instant
 import java.util.Date
 
@@ -60,15 +57,34 @@ fun Application.configureDeviceAPI(service : DeviceMqttService?, firmwareAPIURL 
             val dto = call.receive<onlineDTO>()
             val id = call.parameters["id"] ?: ""
 
-            val family = database.families.find { it.name eq dto.firmwareName } ?: return@post call.respond(HttpStatusCode.NotFound)
-            val firmwareEntity = database.firmwares
+            var family = database.families.find { it.name eq dto.firmwareName }
+            if (family == null) {
+                family = FirmwareFamilyEntity {
+                    this.name = dto.firmwareName
+                }
+                database.families.add(family)
+            }
+            var firmwareEntity = database.firmwares
                 .filter { it.familyId eq  family.id}
                 .filter { it.version eq dto.firmwareVersion}
-                .find {it.platform eq dto.platform} ?: return@post call.respond(HttpStatusCode.NotFound)
+                .find {it.platform eq dto.platform}
 
-            val device = (database.devices.find { it.deviceId eq id }
-                ?: DeviceMetadataEntity())
-                .apply {
+            if (firmwareEntity == null) {
+              firmwareEntity = FirmwareEntity {
+                  this.platform = dto.platform
+                  this.description = ""
+                  this.family = family
+                  this.firmwareId = id
+                  this.version = dto.firmwareVersion
+              }
+            }
+
+            var device = database.devices.find { it.deviceId eq id }
+
+            if (device == null)
+            {
+                device = DeviceMetadataEntity(){
+                    deviceId = id
                     name = dto.name
                     online = true
                     ssid = dto.ssid
@@ -76,11 +92,25 @@ fun Application.configureDeviceAPI(service : DeviceMqttService?, firmwareAPIURL 
                     ip = dto.ip
                     platform = dto.platform
                     firmware = firmwareEntity
+                }
+                database.devices.add(device)
+                return@post call.respond(HttpStatusCode.OK)
             }
 
-            //TODO: Test doesn't exist
+            device.apply {
+                deviceId = id
+                name = dto.name
+                online = true
+                ssid = dto.ssid
+                lastMessage = Instant.now().epochSecond
+                ip = dto.ip
+                platform = dto.platform
+                firmware = firmwareEntity
+            }
+
             database.devices.update(device)
-            call.respond("")
+
+            return@post call.respond(HttpStatusCode.OK)
         }
 
         delete("/devices/{id}") {
