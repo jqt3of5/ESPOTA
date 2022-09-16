@@ -77,6 +77,7 @@ fun Application.configureDeviceAPI(service : DeviceMqttService?, firmwareAPIURL 
                   this.firmwareId = id
                   this.version = dto.firmwareVersion
               }
+                database.firmwares.add(firmwareEntity)
             }
 
             var device = database.devices.find { it.deviceId eq id }

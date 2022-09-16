@@ -399,9 +399,8 @@ class DeviceAPITest {
             platform = "esp"
             description = "description"
         }
-        database.families.add(metadata)
-        database.firmwares.add(firmware)
-        database.devices.add(DeviceMetadataEntity {
+
+        val device = DeviceMetadataEntity {
             name = "name1"
             deviceId = "device1"
             online = true
@@ -410,7 +409,10 @@ class DeviceAPITest {
             ip = "192.168.1.2"
             platform = "esp"
             this.firmware = firmware
-        })
+        }
+        database.families.add(metadata)
+        database.firmwares.add(firmware)
+        database.devices.add(device)
 
         val mock = mockk<IMqttClient>()
         every { mock.setCallback(any()) } returns Unit
