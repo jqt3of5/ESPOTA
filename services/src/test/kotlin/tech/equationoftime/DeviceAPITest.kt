@@ -26,8 +26,8 @@ class DeviceAPITest {
 
     @Test
     fun testDevices() = testApplication {
-            //An unfortunate little trick to keep this in memory db alive between transactions
-            val keepAlive = DriverManager.getConnection("jdbc:sqlite:file:test?mode=memory&cache=shared")
+        //An unfortunate little trick to keep this in memory db alive between transactions
+        val keepAlive = DriverManager.getConnection("jdbc:sqlite:file:test?mode=memory&cache=shared")
         var database = Database.connect("jdbc:sqlite:file:test?mode=memory&cache=shared")
         database.createTable(DeviceTable)
             database.devices.add(DeviceMetadataEntity {
@@ -49,6 +49,7 @@ class DeviceAPITest {
             })
 
             val mock = mockk<IMqttClient>()
+            val
             every { mock.setCallback(any()) } returns Unit
 
             val service = DeviceMqttService(mock)
@@ -71,7 +72,40 @@ class DeviceAPITest {
 
         val keepAlive = DriverManager.getConnection("jdbc:sqlite:file:test?mode=memory&cache=shared")
         var database = Database.connect("jdbc:sqlite:file:test?mode=memory&cache=shared")
+//        var database = Database.connect("jdbc:sqlite:testDeviceFilter.db")
         database.createTable(DeviceTable)
+        database.createTable(FirmwareVersionTable)
+        database.createTable(FirmwareMetadataTable)
+         val family1 = FirmwareFamilyEntity {
+             name = "firmwareFamily1"
+         }
+        database.families.add(family1)
+
+        val firmware1 =  FirmwareEntity {
+            firmwareId = "firmware1"
+            family = family1
+            version = "1.0.0"
+            platform = "esp"
+            description = "description"
+        }
+        database.firmwares.add(firmware1)
+        val firmware11 = FirmwareEntity {
+            firmwareId = "firmware1"
+            family = family1
+            version = "1.0.1"
+            platform = "esp"
+            description = "description"
+        }
+        database.firmwares.add(firmware11)
+        val firmware2 =  FirmwareEntity {
+            firmwareId = "firmware2"
+            family = family1
+            version = "1.0.0"
+            platform = "esp"
+            description = "description"
+        }
+        database.firmwares.add(firmware2)
+
         database.devices.add(DeviceMetadataEntity {
             name = "main-device"
             online = true
@@ -79,15 +113,7 @@ class DeviceAPITest {
             lastMessage = 12345678
             ip = "192.168.1.1"
             platform = "esp"
-            firmware = FirmwareEntity {
-                firmwareId = "firmware1"
-                family = FirmwareFamilyEntity {
-                    name = "firmwareFamily1"
-                }
-                version = "1.0.0"
-                platform = "esp"
-                description = "description"
-            }
+            firmware = firmware11
         })
         database.devices.add(DeviceMetadataEntity {
             name = "main-device2"
@@ -95,16 +121,8 @@ class DeviceAPITest {
             ssid = "ssid"
             lastMessage = 12345678
             ip = "192.168.1.2"
-            platform = "esp"
-            firmware = FirmwareEntity {
-                firmwareId = "firmware1"
-                family = FirmwareFamilyEntity {
-                    name = "firmwareFamily1"
-                }
-                version = "1.0.1"
-                platform = "esp"
-                description = "description"
-            }
+            platform = "pico"
+            firmware = firmware1
         })
         database.devices.add(DeviceMetadataEntity {
             name = "main-device2"
@@ -113,15 +131,7 @@ class DeviceAPITest {
             lastMessage = 12345678
             ip = "192.168.1.3"
             platform = "esp"
-            firmware = FirmwareEntity {
-                firmwareId = "firmware2"
-                family = FirmwareFamilyEntity {
-                    name = "firmwareFamily1"
-                }
-                version = "1.0.0"
-                platform = "esp"
-                description = "description"
-            }
+            firmware = firmware2
         })
 
         val mock = mockk<IMqttClient>()
@@ -133,10 +143,10 @@ class DeviceAPITest {
             configureDeviceAPI(service, "http://localhost", database)
         }
 
-        client.get("/devices?firmwareName=name").apply {
+        client.get("/devices?firmwareName=firmwareFamily1").apply {
             assertEquals(HttpStatusCode.OK, status)
             val list = Json.decodeFromString<List<DeviceMetadataDTO>>(bodyAsText())
-            assertEquals(1, list.count())
+            assertEquals(3, list.count())
         }
         client.get("/devices?firmwareVersion=1.0.0").apply {
             assertEquals(HttpStatusCode.OK, status)
@@ -157,6 +167,8 @@ class DeviceAPITest {
         val keepAlive = DriverManager.getConnection("jdbc:sqlite:file:test?mode=memory&cache=shared")
         var database = Database.connect("jdbc:sqlite:file:test?mode=memory&cache=shared")
         database.createTable(DeviceTable)
+        database.createTable(FirmwareVersionTable)
+        database.createTable(FirmwareMetadataTable)
         database.devices.add(DeviceMetadataEntity {
             name = "main-device2"
             online = true
@@ -200,6 +212,8 @@ class DeviceAPITest {
         val keepAlive = DriverManager.getConnection("jdbc:sqlite:file:test?mode=memory&cache=shared")
         var database = Database.connect("jdbc:sqlite:file:test?mode=memory&cache=shared")
         database.createTable(DeviceTable)
+        database.createTable(FirmwareVersionTable)
+        database.createTable(FirmwareMetadataTable)
         database.devices.add(DeviceMetadataEntity {
             name = "main-device2"
             online = true
@@ -253,6 +267,8 @@ class DeviceAPITest {
         val keepAlive = DriverManager.getConnection("jdbc:sqlite:file:test?mode=memory&cache=shared")
         var database = Database.connect("jdbc:sqlite:file:test?mode=memory&cache=shared")
         database.createTable(DeviceTable)
+        database.createTable(FirmwareVersionTable)
+        database.createTable(FirmwareMetadataTable)
         database.devices.add(DeviceMetadataEntity {
             name = "main-device2"
             online = true
@@ -303,6 +319,8 @@ class DeviceAPITest {
         val keepAlive = DriverManager.getConnection("jdbc:sqlite:file:test?mode=memory&cache=shared")
         var database = Database.connect("jdbc:sqlite:file:test?mode=memory&cache=shared")
         database.createTable(DeviceTable)
+        database.createTable(FirmwareVersionTable)
+        database.createTable(FirmwareMetadataTable)
         database.devices.add(DeviceMetadataEntity {
             name = "main-device2"
             online = true
@@ -354,6 +372,8 @@ class DeviceAPITest {
         val keepAlive = DriverManager.getConnection("jdbc:sqlite:file:test?mode=memory&cache=shared")
         var database = Database.connect("jdbc:sqlite:file:test?mode=memory&cache=shared")
         database.createTable(DeviceTable)
+        database.createTable(FirmwareVersionTable)
+        database.createTable(FirmwareMetadataTable)
 
         val mock = mockk<IMqttClient>()
         every { mock.setCallback(any()) } returns Unit
@@ -386,6 +406,7 @@ class DeviceAPITest {
 
         val keepAlive = DriverManager.getConnection("jdbc:sqlite:file:test?mode=memory&cache=shared")
         var database = Database.connect("jdbc:sqlite:file:test?mode=memory&cache=shared")
+//        val database = Database.connect("jdbc:sqlite:testAddExistingDevice.db")
         database.createTable(DeviceTable)
         database.createTable(FirmwareVersionTable)
         database.createTable(FirmwareMetadataTable)
@@ -431,13 +452,13 @@ class DeviceAPITest {
 
         client.post("/devices/device1"){
             header("content-type", "application/json")
-            setBody(onlineDTO("name1", "ip2", "ssid2", "esp", "family2", "firmware2"))
+            setBody(onlineDTO("name2", "ip2", "ssid2", "esp", "family2", "firmware2"))
         }.apply {
             assertEquals(HttpStatusCode.OK, status)
         }
 
         assertEquals(1, database.devices.count())
-        assertEquals("1234", database.devices.first().deviceId)
+        assertEquals("device1", database.devices.first().deviceId)
         assertEquals("name2", database.devices.first().name)
         keepAlive.close()
     }
@@ -448,7 +469,9 @@ class DeviceAPITest {
         var database = Database.connect("jdbc:sqlite:file:test?mode=memory&cache=shared")
         database.createTable(DeviceTable)
         database.createTable(FirmwareMetadataTable)
+        database.createTable(FirmwareVersionTable)
         database.devices.add(DeviceMetadataEntity {
+            deviceId = "1234"
             name = "main-device2"
             online = true
             ssid = "ssid"
@@ -497,6 +520,7 @@ class DeviceAPITest {
         database.createTable(DeviceTable)
         database.createTable(FirmwareMetadataTable)
         database.devices.add(DeviceMetadataEntity {
+            deviceId = "1234"
             name = "main-device2"
             online = true
             ssid = "ssid"
@@ -528,7 +552,7 @@ class DeviceAPITest {
             }
         }
 
-        client.delete("/devices/absdef"){
+        client.delete("/devices/1234"){
         }.apply {
             assertEquals(HttpStatusCode.NotFound, status)
         }

@@ -25,7 +25,7 @@ data class wifiDTO (val ssid: String, val psk : String)
 data class mdnsDTO (val name: String)
 @kotlinx.serialization.Serializable
 data class onlineDTO(val name: String, val ip: String, val ssid : String, val platform : String, val firmwareName : String, val firmwareVersion : String)
-fun Application.configureDeviceAPI(service : DeviceMqttService?, firmwareAPIURL : String, database : Database) {
+fun Application.configureDeviceAPI(service : DeviceMqttService?, firmwareAPIURL : String, repo : IDeviceRepo) {
 
     routing {
 
@@ -34,9 +34,7 @@ fun Application.configureDeviceAPI(service : DeviceMqttService?, firmwareAPIURL 
             val version = call.request.queryParameters["firmwareVersion"]
             val firmwareName = call.request.queryParameters["firmwareName"]
 
-            val devices = database.devices.toList()
-
-            val metadatas = devices.filter {
+            val metadatas = repo.devices.filter {
                 if (platform != null && platform != it.platform)
                 {
                     return@filter false
@@ -50,55 +48,33 @@ fun Application.configureDeviceAPI(service : DeviceMqttService?, firmwareAPIURL 
                     return@filter false
                 }
                 return@filter true
+            }.map {
+                DeviceMetadataDTO(it.deviceId, it.name, it.online, it.ssid, it.lastMessage, it.ip, it.platform, it.firmware.family.name, it.firmware.version)
             }
             call.respond(metadatas)
+        }
+        get ("/devices/{id}"){
+            val id = call.parameters["id"] ?: ""
+
+            repo.getDevice(id)?.let {
+                call.respond(DeviceMetadataDTO(it.deviceId, it.name, it.online, it.ssid, it.lastMessage, it.ip, it.platform, it.firmware.family.name, it.firmware.version))
+            } ?: call.respond(HttpStatusCode.NotFound)
         }
         post ("/devices/{id}") {
             val dto = call.receive<onlineDTO>()
             val id = call.parameters["id"] ?: ""
 
-            var family = database.families.find { it.name eq dto.firmwareName }
-            if (family == null) {
-                family = FirmwareFamilyEntity {
-                    this.name = dto.firmwareName
-                }
-                database.families.add(family)
-            }
-            var firmwareEntity = database.firmwares
-                .filter { it.familyId eq  family.id}
-                .filter { it.version eq dto.firmwareVersion}
-                .find {it.platform eq dto.platform}
-
-            if (firmwareEntity == null) {
-              firmwareEntity = FirmwareEntity {
-                  this.platform = dto.platform
-                  this.description = ""
-                  this.family = family
-                  this.firmwareId = id
-                  this.version = dto.firmwareVersion
-              }
-                database.firmwares.add(firmwareEntity)
+            val familyEntity = FirmwareFamilyEntity {
+                name = dto.firmwareName
             }
 
-            var device = database.devices.find { it.deviceId eq id }
-
-            if (device == null)
-            {
-                device = DeviceMetadataEntity(){
-                    deviceId = id
-                    name = dto.name
-                    online = true
-                    ssid = dto.ssid
-                    lastMessage = Instant.now().epochSecond
-                    ip = dto.ip
-                    platform = dto.platform
-                    firmware = firmwareEntity
-                }
-                database.devices.add(device)
-                return@post call.respond(HttpStatusCode.OK)
+            val firmwareEntity = FirmwareEntity{
+                version = dto.firmwareVersion
+                family = familyEntity
+                platform = dto.platform
             }
 
-            device.apply {
+            val deviceEntity = DeviceMetadataEntity(){
                 deviceId = id
                 name = dto.name
                 online = true
@@ -109,47 +85,61 @@ fun Application.configureDeviceAPI(service : DeviceMqttService?, firmwareAPIURL 
                 firmware = firmwareEntity
             }
 
-            database.devices.update(device)
+            repo.addOrUpdateDevice(deviceEntity)
 
             return@post call.respond(HttpStatusCode.OK)
         }
 
         delete("/devices/{id}") {
-            //TODO: Check that device is actually under our control and online
             val id = call.parameters["id"] ?: ""
 
-            database.devices.find { it.deviceId eq id } ?: return@delete call.respond(HttpStatusCode.NotFound)
+            repo.getDevice(id)?.let {
+                repo.deleteDevice(id)
+            } ?: return@delete call.respond(HttpStatusCode.NotFound)
 
-            database.devices.removeIf { it.deviceId eq id }
             call.respond(HttpStatusCode.OK)
         }
 
         post ("/devices/{id}/flash") {
-            //TODO: Check that device is actually under our control and online
             val dto = call.receive<FlashDTO>()
-            //todo: What is the public facing url?
-            service?.flash(call.parameters["id"] ?: "", firmwareAPIURL, dto.firmwareId)
-            call.respond("")
+            val id = call.parameters["id"] ?: ""
+
+            repo.getDevice(id)?.let {
+                //todo: What is the public facing url?
+                service?.flash(call.parameters["id"] ?: "", firmwareAPIURL, dto.firmwareId)
+            } ?: return@post call.respond(HttpStatusCode.NotFound)
+
+            call.respond(HttpStatusCode.OK)
         }
-        post ("/devices/{id}/reboot")
-        {
-            //TODO: Check that device is actually under our control and online
-            service?.reboot(call.parameters["id"] ?: "")
-            call.respond("")
+        post ("/devices/{id}/reboot") {
+            val id = call.parameters["id"] ?: ""
+
+            repo.getDevice(id)?.let {
+                service?.reboot(call.parameters["id"] ?: "")
+            } ?: return@post call.respond(HttpStatusCode.NotFound)
+
+            call.respond(HttpStatusCode.OK)
         }
-        post ("/devices/{id}/wifi")
-        {
-            //TODO: Check that device is actually under our control and online
+
+        post ("/devices/{id}/wifi") {
             val dto = call.receive<wifiDTO>()
-            service?.wifi(call.parameters["id"] ?: "", dto.ssid, dto.psk)
-            call.respond("")
+            val id = call.parameters["id"] ?: ""
+
+            repo.getDevice(id)?.let {
+                service?.wifi(call.parameters["id"] ?: "", dto.ssid, dto.psk)
+            } ?: return@post call.respond(HttpStatusCode.NotFound)
+
+            call.respond(HttpStatusCode.OK)
         }
-        post ("/devices/{id}/mdns")
-        {
-            //TODO: Check that device is actually under our control and online
+        post ("/devices/{id}/mdns") {
             val dto = call.receive<mdnsDTO>()
-            service?.mdns(call.parameters["id"] ?: "", dto.name)
-            call.respond("")
+            val id = call.parameters["id"] ?: ""
+
+            repo.getDevice(id)?.let {
+                service?.mdns(call.parameters["id"] ?: "", dto.name)
+            } ?: return@post call.respond(HttpStatusCode.NotFound)
+
+            call.respond(HttpStatusCode.OK)
         }
     }
 }

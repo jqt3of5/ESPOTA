@@ -9,7 +9,7 @@ val Database.devices get() = this.sequenceOf(DeviceTable)
 
 interface DeviceMetadataEntity : Entity<DeviceMetadataEntity> {
     companion object : Entity.Factory<DeviceMetadataEntity>()
-    val id : Int
+    var id : Int
     var deviceId : String
     var name : String
     var online : Boolean

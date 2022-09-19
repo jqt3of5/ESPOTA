@@ -7,19 +7,23 @@ import org.ktorm.schema.Table
 fun <E : Entity<E>>Database.createTable(table : Table<E>) {
 
     val tableSchema = buildString {
-        append("CREATE TABLE ${table.tableName} ( ")
+        append("CREATE TABLE IF NOT EXISTS ${table.tableName} ( ")
 
         for (column in table.columns)
         {
-           append("${column.name} ${column.sqlType.typeName}, ")
-        }
+            if (table.primaryKeys.contains(column)) {
+                append("${column.name} ${if (column.sqlType.typeName.lowercase() == "int") "INTEGER" else column.sqlType.typeName} PRIMARY KEY")
+            }
+            else {
+                append("${column.name} ${column.sqlType.typeName}")
+            }
 
-        append("PRIMARY KEY (")
-        for (column in table.primaryKeys)
-        {
-            append("${column.name}")
+            if (column != table.columns.last())
+            {
+                append(", ")
+            }
         }
-        append(") );")
+        append(" );")
     }
 
     this.useConnection {

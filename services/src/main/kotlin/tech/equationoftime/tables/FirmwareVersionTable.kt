@@ -10,8 +10,7 @@ val Database.families get() = this.sequenceOf(FirmwareMetadataTable)
 
 interface FirmwareEntity : Entity<FirmwareEntity> {
     companion object : Entity.Factory<FirmwareEntity>()
-    val id : Int
-    var firmwareId : String
+    var id : Int
     var family : FirmwareFamilyEntity
     var version : String
     var platform: String
@@ -20,7 +19,6 @@ interface FirmwareEntity : Entity<FirmwareEntity> {
 
 object FirmwareVersionTable : Table<FirmwareEntity>("t_firmware") {
     val id = int("id").primaryKey().bindTo { it.id }
-    val firmwareId = varchar("firmware_id").bindTo { it.firmwareId }
     val familyId = int("family_id").references(FirmwareMetadataTable){ it.family}
     val version = varchar ("version").bindTo { it.version }
     val platform = varchar("plaform").bindTo { it.platform }
@@ -29,8 +27,8 @@ object FirmwareVersionTable : Table<FirmwareEntity>("t_firmware") {
 
 interface FirmwareFamilyEntity : Entity<FirmwareFamilyEntity> {
     companion object : Entity.Factory<FirmwareFamilyEntity>()
+    var id : Int
     var name : String
-    val id : Int
 }
 
 object FirmwareMetadataTable : Table<FirmwareFamilyEntity>("t_firmware_metadata") {
