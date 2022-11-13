@@ -7,136 +7,83 @@ import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
 import kotlin.test.*
 import io.ktor.server.testing.*
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.slot
+import io.mockk.verify
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import org.ktorm.database.Database
-import org.ktorm.entity.add
-import org.ktorm.entity.toList
-import tech.equationoftime.models.FirmwareMetadataDTO
+import tech.equationoftime.models.FirmwareFamilyMetadataDTO
+import tech.equationoftime.models.FirmwareVersionMetadataDTO
 import tech.equationoftime.plugins.*
 import tech.equationoftime.tables.*
 import java.io.File
 import kotlin.io.path.Path
 
 class FirmwareAPITest {
+    val _repo : IDeviceRepo
+        get () = mockk<IDeviceRepo>().also {
+            val families = listOf(FirmwareMetadataEntity {
+                id = 0
+                name = "firmwareFamily1"
+            })
+            every { it.firmware } returns families
+            every { it.getFamily("firmwareFamily1") } returns families[0]
+            every { it.getFamily("nonfirmware") } returns null
+
+            val firmwares = listOf(FirmwareVersionEntity {
+                id = 0
+                firmwareId = "a"
+                family = families[0]
+                version = "1.0.0"
+                platform = "esp"
+                description = "description"
+            },
+            FirmwareVersionEntity {
+                id = 1
+                firmwareId = "b"
+                family = families[0]
+                version = "1.0.1"
+                platform = "esp"
+                description = "description"
+            },
+            FirmwareVersionEntity {
+                id = 2
+                firmwareId = "c"
+                family = families[0]
+                version = "1.0.2"
+                platform = "esp"
+                description = "description"
+            })
+            every { it.getFirmware("firmwareFamily1", "1.0.0", "esp") } returns firmwares[0]
+            every { it.getFirmwareVersions(any()) } returns firmwares
+            every { it.addOrUpdateFirmwareVersion(any()) } returns Unit
+        }
     @Test
-    fun testFirmwareEmpty() = testApplication {
-
-        var database = Database.connect("jdbc:sqlite::memory:")
-        application {
-            configureSerialization()
-            configureFirmwareAPI(database)
-        }
-        client.get("/firmware").apply {
-            assertEquals(HttpStatusCode.OK, status)
-        }
-    }
-    @Test
-    fun testFirmwareFilled() = testApplication {
-
-        val database = Database.connect("jdbc:sqlite::memory:")
-        val familyEntity = FirmwareFamilyEntity {
-            name = "family1"
-        }
-        database.families.add(familyEntity)
-        database.firmwares.add(FirmwareEntity {
-            firmwareId = "1234"
-            family = familyEntity
-            version = "1.0.0"
-            platform = "esp"
-            description = "description"
-        })
-        database.firmwares.add(FirmwareEntity {
-            firmwareId = "12345"
-            family = familyEntity
-            version = "1.0.2"
-            platform = "esp"
-            description = "description"
-        })
-        database.firmwares.add(FirmwareEntity {
-            firmwareId = "123456"
-            family = familyEntity
-            version = "1.0.1"
-            platform = "esp"
-            description = "description"
-        })
-
-        application {
-            configureSerialization()
-            configureFirmwareAPI(database)
-        }
-        client.get("/firmware").apply {
-            assertEquals(HttpStatusCode.OK, status)
-            val list = Json.decodeFromString<List<FirmwareMetadataDTO>>(bodyAsText())
-            assertEquals(3, list.count())
-        }
-    }
-    @Test
-    fun testFirmwareFiltered() = testApplication {
-
-        val database = Database.connect("jdbc:sqlite::memory:")
-        val familyEntity = FirmwareFamilyEntity {
-            name = "family1"
-        }
-        database.families.add(familyEntity)
-        database.firmwares.add(FirmwareEntity {
-            firmwareId = "1234"
-            family = familyEntity
-            version = "1.0.0"
-            platform = "esp"
-            description = "description"
-        })
-        database.firmwares.add(FirmwareEntity {
-            firmwareId = "12345"
-            family = familyEntity
-            version = "1.0.2"
-            platform = "esp"
-            description = "description"
-        })
-        database.firmwares.add(FirmwareEntity {
-            firmwareId = "123456"
-            family = familyEntity
-            version = "1.0.1"
-            platform = "esp"
-            description = "description"
-        })
+    fun testGetFirmwares() = testApplication {
 
         application {
             configureSerialization()
-            configureFirmwareAPI(database)
+            configureFirmwareAPI(_repo)
         }
-        client.get("/firmware?name=family1").apply {
+        client.get("/firmwares").apply {
             assertEquals(HttpStatusCode.OK, status)
-            val list = Json.decodeFromString<List<FirmwareMetadataDTO>>(bodyAsText())
-            assertEquals(2, list.count())
-        }
-        client.get("/firmware?version=1.0.0").apply {
-            assertEquals(HttpStatusCode.OK, status)
-            val list = Json.decodeFromString<List<FirmwareMetadataDTO>>(bodyAsText())
+            val list = Json.decodeFromString<List<FirmwareFamilyMetadataDTO>>(bodyAsText())
             assertEquals(1, list.count())
-        }
-        client.get("/firmware?platform=esp").apply {
-            assertEquals(HttpStatusCode.OK, status)
-            val list = Json.decodeFromString<List<FirmwareMetadataDTO>>(bodyAsText())
-            assertEquals(3, list.count())
         }
     }
 
     @Test
     fun testAddNewFirmware() = testApplication {
 
-        val database = Database.connect("jdbc:sqlite::memory:")
-        val familyEntity = FirmwareFamilyEntity {
-            name = "family1"
-        }
-        database.families.add(familyEntity)
+        val repo = _repo
 
         application {
             configureSerialization()
-            configureFirmwareAPI(database)
+            configureFirmwareAPI(repo)
         }
 
-        client.submitFormWithBinaryData("/firmware/esp/family1/1.0.0", formData {
+        client.submitFormWithBinaryData("/firmware/firmwareFamily1/2.0.0/esp", formData {
             append("description", "testfilename")
             append("file", File("gradlew").readBytes(), Headers.build {
                 append(HttpHeaders.ContentType, "application/octet-stream")
@@ -146,83 +93,44 @@ class FirmwareAPITest {
         .apply {
             assertEquals(HttpStatusCode.OK, status)
             assert(File(Path(firmwareRoot, body<String>()).toString()).exists())
-            assertEquals(1, database.firmwares.toList().count())
+
+            val slot = slot<FirmwareVersionEntity>()
+            verify { repo.addOrUpdateFirmwareVersion(capture(slot))}
+
+            assertEquals("2.0.0", slot.captured.version)
+            assertEquals("esp", slot.captured.platform)
+            assertEquals("testfilename", slot.captured.description)
+            assertEquals("firmwareFamily1", slot.captured.family.name)
+            assertEquals(body<String>(), slot.captured.firmwareId)
         }
     }
+
     @Test
-    fun testAddExistingFirmware() = testApplication {
-
-        val database = Database.connect("jdbc:sqlite::memory:")
-
-        val familyEntity = FirmwareFamilyEntity {
-            name = "name"
-        }
-        database.families.add(familyEntity)
-        database.firmwares.add(FirmwareEntity {
-            firmwareId = "1234"
-            family = familyEntity
-            version = "version"
-            platform = "platform"
-            description = "description"
-        })
-        application {
-            configureSerialization()
-            configureFirmwareAPI(database)
-        }
-
-        client.submitFormWithBinaryData("/firmware/platform/name/version", formData {
-            append("description", "testfilename")
-            append("file", File("gradlew").readBytes(), Headers.build {
-                append(HttpHeaders.ContentType, "application/octet-stream")
-                append(HttpHeaders.ContentDisposition, "filename=\"firmware\"")
-            })
-        })
-            .apply {
-                assertEquals(HttpStatusCode.BadRequest, status)
-                assert(File(Path(firmwareRoot, body<String>()).toString()).exists())
-                assertEquals(1, database.firmwares.toList().count())
-            }
-    }
-    @Test
-    fun testGetNewFirmware() = testApplication {
-
-        val database = Database.connect("jdbc:sqlite::memory:")
+    fun testGetSpcificFirmware() = testApplication {
 
         application {
             configureSerialization()
-            configureFirmwareAPI(database)
+            configureFirmwareAPI(_repo)
         }
 
-        val uuid = client.submitFormWithBinaryData("/firmware/esp/name/1.0.0", formData {
-            append("description", "testfilename")
-            append("file", File("gradlew").readBytes(), Headers.build {
-                append(HttpHeaders.ContentType, "application/octet-stream")
-                append(HttpHeaders.ContentDisposition, "filename=\"firmware\"")
-            })
-        })
-        .apply {
+        client.get("/firmware/firmwareFamily1/1.0.0/esp").apply {
             assertEquals(HttpStatusCode.OK, status)
-        }.body<String>()
-
-        client.get("/firmware/esp/name/1.0.0/metadata").apply {
-            assertEquals(HttpStatusCode.OK, status)
-            val metadata = Json.decodeFromString<FirmwareMetadataDTO>(bodyAsText())
+            val metadata = Json.decodeFromString<FirmwareVersionMetadataDTO>(bodyAsText())
             assertEquals("esp", metadata.platform)
-            assertEquals("name", metadata.name)
+            assertEquals("firmwareFamily1", metadata.name)
             assertEquals("1.0.0", metadata.version)
-            assertEquals(uuid, metadata.id)
+            assertEquals("a", metadata.id)
         }
     }
     @Test
     fun testGetNonFirmware() = testApplication {
 
-        val database = Database.connect("jdbc:sqlite::memory:")
         application {
             configureSerialization()
-            configureFirmwareAPI(database)
+            configureFirmwareAPI(_repo)
         }
 
-        client.get("/firmware/esp/name/1.0.0/metadata").apply {
+        client.get("/firmware/nonfirmware/1.0.0/esp").apply {
             assertEquals(HttpStatusCode.NotFound, status)
         }
     }

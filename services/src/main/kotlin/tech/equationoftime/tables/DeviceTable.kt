@@ -17,7 +17,7 @@ interface DeviceMetadataEntity : Entity<DeviceMetadataEntity> {
     var lastMessage : Long
     var ip : String
     var platform : String
-    var firmware: FirmwareEntity
+    var firmware: FirmwareVersionEntity
 }
 
 object DeviceTable : Table<DeviceMetadataEntity>("t_device") {

@@ -9,79 +9,50 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.ktorm.database.Database
-import org.ktorm.dsl.eq
-import org.ktorm.entity.add
-import org.ktorm.entity.filter
-import org.ktorm.entity.find
-import org.ktorm.entity.map
 import tech.equationoftime.firmwareRoot
-import tech.equationoftime.models.FirmwareMetadataDTO
-import tech.equationoftime.tables.FirmwareEntity
-import tech.equationoftime.tables.FirmwareFamilyEntity
-import tech.equationoftime.tables.families
-import tech.equationoftime.tables.firmwares
+import tech.equationoftime.models.FirmwareFamilyMetadataDTO
+import tech.equationoftime.models.FirmwareVersionMetadataDTO
+import tech.equationoftime.tables.*
 import java.nio.file.Files
 import kotlin.io.path.Path
 
-fun Application.configureFirmwareAPI(database : Database) {
+fun Application.configureFirmwareAPI(repo : IDeviceRepo) {
 
     routing {
         //Get existing firmwares of firmware
         get("/firmwares") {
 
-            val families = database.families.map {it.name}
+            val families = repo.firmware.map {FirmwareFamilyMetadataDTO(it.name)}
             call.respond(families)
         }
 
-        post ("/firmwares/{firmware}") {
+        post ("/firmware/{firmware}") {
             val firmwareFamily = call.parameters["firmware"]
             if (firmwareFamily != null)
             {
-                database.families.add(FirmwareFamilyEntity {
-                    name = firmwareFamily
+                repo.addOrUpdateFirmwareFamily(FirmwareMetadataEntity {
+                   name = firmwareFamily
                 })
             }
-            call.respond("")
+            call.respond(HttpStatusCode.OK)
         }
 
         //get firmware that belongs to this firmware family
         get("/firmware/{family}") {
             val family = call.parameters["family"] as String
 
-            database.families.find {it.name eq family}?.let {familyEntity ->
-                val firmwares = database.firmwares.filter {it.familyId eq familyEntity.id}
-
-                call.respond(firmwares.map {
-                    FirmwareMetadataDTO(it.firmwareId, it.family.name, it.version, it.platform, it.description)
+            repo.getFirmwareVersions(family)?.let {
+                call.respond(it.map {
+                    FirmwareVersionMetadataDTO(it.id.toString(), it.family.name, it.version, it.platform, it.description)
                 })
             }
         }
 
         //Upload new firmware version
         post("/firmware/{family}/{version}/{platform}") {
-            val familyName = call.parameters["familyName"] ?: ""
+            val familyName = call.parameters["family"] ?: ""
             val version = call.parameters["version"] ?: ""
             val platform = call.parameters["platform"] ?: ""
-
-            val familyEntity = database.families.find {it.name eq familyName}
-            if (familyEntity == null)
-            {
-                call.respond(HttpStatusCode.NotFound)
-                return@post
-            }
-
-            val firmware = database.firmwares
-                .filter {it.familyId eq familyEntity.id}
-                .filter {it.version eq version}
-                .find {it.platform eq platform}
-
-            //Does this firmware already exist?
-            if (firmware != null)
-            {
-                call.respond(HttpStatusCode.BadRequest)
-                return@post
-            }
 
             val uuid = uuid4().toString()
             var description = ""
@@ -110,15 +81,18 @@ fun Application.configureFirmwareAPI(database : Database) {
                 }
             }
 
-            //TODO: Validation Logic for version numbers/sorting/ids/etc
-            database.firmwares.add(FirmwareEntity {
-                firmwareId = uuid
-                family = familyEntity
+            val firmware = FirmwareVersionEntity{
+                this.firmwareId = uuid
                 this.version = version
-                this.description = description
                 this.platform = platform
-            })
-            call.respond(uuid)
+                this.description = description
+                this.family = FirmwareMetadataEntity {
+                    this.name = familyName
+                }
+            }
+            repo.addOrUpdateFirmwareVersion(firmware)
+
+            call.respond(firmware.firmwareId)
         }
 
         //Get metadata
@@ -127,30 +101,29 @@ fun Application.configureFirmwareAPI(database : Database) {
             val version = call.parameters["version"] ?: ""
             val platform = call.parameters["platform"] ?: ""
 
-            val familyEntity = database.families
-                .find {it.name eq family }
-                ?: return@get call.respond(HttpStatusCode.NotFound)
+            repo.getFamily(family) ?: return@get call.respond(HttpStatusCode.NotFound)
 
-            val metadata = database.firmwares
-                .filter {it.familyId eq familyEntity.id}
-                .filter {it.version eq version}
-                .find {it.platform eq platform}
+            val metadata = repo.getFirmware(family, version, platform)
                 ?: return@get call.respond(HttpStatusCode.NotFound,"firmware not found for $family@$version")
 
-            call.respond(metadata)
+            call.respond(FirmwareVersionMetadataDTO(metadata.firmwareId, family, metadata.version, metadata.platform, metadata.description))
         }
 
         //Download
         get ("/firmware/{firmwareId}") {
-            call.parameters["firmwareId"]?.let {firmwareId ->
-                val file = java.io.File(Path(firmwareRoot,firmwareId).toString())
-                if (!file.exists())
-                {
-                    return@get call.respond("file not found")
+            call.parameters["firmwareId"]?.let {
+
+                repo.getFirmware(it)?.let {
+                    val file = java.io.File(Path(firmwareRoot,it.firmwareId).toString())
+                    if (!file.exists())
+                    {
+                        return@get call.respond("file not found")
+                    }
+                    return@get call.respondFile(file)
                 }
-                call.respondFile(file)
             }
-            call.respond("One or more path parameters were null")
+
+            return@get call.respond("One or more path parameters were null")
         }
     }
 }

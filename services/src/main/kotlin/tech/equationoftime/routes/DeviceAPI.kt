@@ -5,17 +5,10 @@ import io.ktor.server.routing.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
-import jdk.incubator.vector.VectorOperators.Binary
-import org.ktorm.database.Database
-import org.ktorm.dsl.eq
-import org.ktorm.entity.*
-import org.ktorm.expression.BinaryExpression
-import org.ktorm.schema.ColumnDeclaring
 import tech.equationoftime.models.DeviceMetadataDTO
 import tech.equationoftime.services.DeviceMqttService
 import tech.equationoftime.tables.*
 import java.time.Instant
-import java.util.Date
 
 @kotlinx.serialization.Serializable
 data class FlashDTO (val firmwareId : String)
@@ -25,7 +18,7 @@ data class wifiDTO (val ssid: String, val psk : String)
 data class mdnsDTO (val name: String)
 @kotlinx.serialization.Serializable
 data class onlineDTO(val name: String, val ip: String, val ssid : String, val platform : String, val firmwareName : String, val firmwareVersion : String)
-fun Application.configureDeviceAPI(service : DeviceMqttService?, firmwareAPIURL : String, repo : IDeviceRepo) {
+fun Application.configureDeviceAPI(repo : IDeviceRepo) {
 
     routing {
 
@@ -64,11 +57,11 @@ fun Application.configureDeviceAPI(service : DeviceMqttService?, firmwareAPIURL 
             val dto = call.receive<onlineDTO>()
             val id = call.parameters["id"] ?: ""
 
-            val familyEntity = FirmwareFamilyEntity {
+            val familyEntity = FirmwareMetadataEntity {
                 name = dto.firmwareName
             }
 
-            val firmwareEntity = FirmwareEntity{
+            val firmwareVersionEntity = FirmwareVersionEntity{
                 version = dto.firmwareVersion
                 family = familyEntity
                 platform = dto.platform
@@ -82,7 +75,7 @@ fun Application.configureDeviceAPI(service : DeviceMqttService?, firmwareAPIURL 
                 lastMessage = Instant.now().epochSecond
                 ip = dto.ip
                 platform = dto.platform
-                firmware = firmwareEntity
+                firmware = firmwareVersionEntity
             }
 
             repo.addOrUpdateDevice(deviceEntity)
@@ -96,48 +89,6 @@ fun Application.configureDeviceAPI(service : DeviceMqttService?, firmwareAPIURL 
             repo.getDevice(id)?.let {
                 repo.deleteDevice(id)
             } ?: return@delete call.respond(HttpStatusCode.NotFound)
-
-            call.respond(HttpStatusCode.OK)
-        }
-
-        post ("/devices/{id}/flash") {
-            val dto = call.receive<FlashDTO>()
-            val id = call.parameters["id"] ?: ""
-
-            repo.getDevice(id)?.let {
-                //todo: What is the public facing url?
-                service?.flash(call.parameters["id"] ?: "", firmwareAPIURL, dto.firmwareId)
-            } ?: return@post call.respond(HttpStatusCode.NotFound)
-
-            call.respond(HttpStatusCode.OK)
-        }
-        post ("/devices/{id}/reboot") {
-            val id = call.parameters["id"] ?: ""
-
-            repo.getDevice(id)?.let {
-                service?.reboot(call.parameters["id"] ?: "")
-            } ?: return@post call.respond(HttpStatusCode.NotFound)
-
-            call.respond(HttpStatusCode.OK)
-        }
-
-        post ("/devices/{id}/wifi") {
-            val dto = call.receive<wifiDTO>()
-            val id = call.parameters["id"] ?: ""
-
-            repo.getDevice(id)?.let {
-                service?.wifi(call.parameters["id"] ?: "", dto.ssid, dto.psk)
-            } ?: return@post call.respond(HttpStatusCode.NotFound)
-
-            call.respond(HttpStatusCode.OK)
-        }
-        post ("/devices/{id}/mdns") {
-            val dto = call.receive<mdnsDTO>()
-            val id = call.parameters["id"] ?: ""
-
-            repo.getDevice(id)?.let {
-                service?.mdns(call.parameters["id"] ?: "", dto.name)
-            } ?: return@post call.respond(HttpStatusCode.NotFound)
 
             call.respond(HttpStatusCode.OK)
         }

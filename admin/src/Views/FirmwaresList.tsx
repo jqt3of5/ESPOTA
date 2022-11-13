@@ -8,11 +8,14 @@ export interface FirmwareMetadata {
     platform : string
     description : string
 }
+export interface FirmwareFamily {
+    name : string
+}
 interface FirmwareListProps {
 }
 interface FirmwareListState {
     firmware: FirmwareMetadata []
-    families: string []
+    families: FirmwareFamily[]
     family: string | null
     file : File | undefined | null
     newFirmwareVersion : string
@@ -34,7 +37,7 @@ export function FirmwareList(props : FirmwareListProps) {
     })
 
     useEffect(() => {
-        fetch("http://localhost:80/families")
+        fetch("http://localhost:80/firmwares")
             .then(res => res.json())
             .then(res => {
                 setState({...state, families: res})
@@ -64,25 +67,38 @@ export function FirmwareList(props : FirmwareListProps) {
         if (state.file != null)
         {
             formData.append("filename", state.file, state.file?.name)
-            fetch(`http://localhost:80/firmware/${state.newFirmwarePlatform}/${state.newFirmwareName}/${state.newFirmwareVersion}`,
-                {method: 'POST', body:formData})
+            fetch(`http://localhost:80/firmware/${state.newFirmwareName}/${state.newFirmwareVersion}/${state.newFirmwarePlatform}`,
+                {method: 'POST', body:formData}).then(res => {
+
+                fetch(`http://localhost:80/firmware/${state.family}`)
+                    .then(res => res.json())
+                    .then(res => {
+                        setState(s => {return {...s, firmware: res}})
+                    }, error => {})
+
+            })
         }
     }
     function onFamilySelected(family : string) {
        setState({...state, family:family})
     }
     function onNewFamily(family : string){
-        fetch(`http://localhost:80/families/${family}`, {method: 'POST'})
+        fetch(`http://localhost:80/firmware/${family}`, {method: 'POST'})
             .then(res => {
                 setState(s => {return {...s, family: family}})
+                fetch("http://localhost:80/firmwares")
+                    .then(res => res.json())
+                    .then(res => {
+                        setState({...state, families: res})
+                    }, error => {})
             }, error => {})
     }
 
     return <div className={"firmware-container"}>
         <div className={"family-list"}>
             {state.families.map ((f,i) =>
-                <div key={i} className={"family-item"} onClick={() => onFamilySelected(f)}>
-                   <span>{f}</span>
+                <div key={i} className={"family-item"} onClick={() => onFamilySelected(f.name)}>
+                   <span>{f.name}</span>
                 </div>
             )}
             <div className={"new-firmware-family"}>
@@ -91,11 +107,14 @@ export function FirmwareList(props : FirmwareListProps) {
             </div>
         </div>
         <div className={"firmware-list"} >
+            <header>
+                {state.family}
+            </header>
             {state.firmware.map((f,i) =>
                 <div className={"itemRow"}>
                     <div className={"metadata"}>
-                        <span className={"title"}>{f.version}</span>
-                        <div className={"platform"}>{f.platform}</div>
+                        <span className={"title"}>Version: {f.version}</span>
+                        <div className={"platform"}>Platform: {f.platform}</div>
                     </div>
                     <div className={"description"}>{f.description}</div>
                 </div>

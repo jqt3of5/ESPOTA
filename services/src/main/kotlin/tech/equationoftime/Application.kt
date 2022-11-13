@@ -11,12 +11,14 @@ import org.eclipse.paho.client.mqttv3.MqttClient
 import org.ktorm.database.Database
 import tech.equationoftime.plugins.*
 import tech.equationoftime.routes.configureMqttService
+import tech.equationoftime.tables.DeviceRepo
 
 val firmwareRoot = "firmwares"
 
 fun main() {
 
-    var database = Database.connect("jdbc:sqlite:main.db")
+    val database = Database.connect("jdbc:sqlite:main.db")
+    val repo = DeviceRepo(database)
 
     val client = MqttClient("tcp://tiltpi.equationoftime.tech:1883","esp-ota-manager")
     val firmwareHttpClient = HttpClient(CIO) {
@@ -33,8 +35,8 @@ fun main() {
         configureHTTP()
         configureTemplating()
         configureSerialization()
-        val mqttService = configureMqttService(firmwareHttpClient, client)
-        configureDeviceAPI(mqttService, "http://localhost:80/", database)
-        configureFirmwareAPI(database)
+        configureMqttService(firmwareHttpClient, client, repo, "http://localhost:80/")
+        configureDeviceAPI(repo)
+        configureFirmwareAPI(repo)
     }.start(wait = true)
 }
