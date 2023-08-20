@@ -1,0 +1,17 @@
+POST localhost:80/devices/1234
+Content-Type: application/json
+
+{
+  "name": "device1",
+  "ip": "127.0.0.1",
+  "ssid": "WaitingOnComcast",
+  "platform": "ESP",
+  "firmwareName": "Test",
+  "firmwareVersion": "1.0.0"
+}
+
+###
+GET localhost:80/devices
+
+###
+POST localhost:80/devices/1234/reboot

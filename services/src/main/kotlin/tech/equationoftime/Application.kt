@@ -12,12 +12,16 @@ import org.ktorm.database.Database
 import tech.equationoftime.plugins.*
 import tech.equationoftime.routes.configureMqttService
 import tech.equationoftime.tables.DeviceRepo
+import kotlin.io.path.Path
 
-val firmwareRoot = "firmwares"
 
 fun main() {
 
-    val database = Database.connect("jdbc:sqlite:main.db")
+    //TODO: Only works on linux... Should work on linux/docker
+    val firmwareRoot = "/usr/espota/firmwares"
+    val dbRoot = "/usr/espota/firmwares"
+
+    val database = Database.connect("jdbc:sqlite:$dbRoot/main.db")
     val repo = DeviceRepo(database)
 
     val client = MqttClient("tcp://tiltpi.equationoftime.tech:1883","esp-ota-manager")
@@ -37,6 +41,6 @@ fun main() {
         configureSerialization()
         configureMqttService(firmwareHttpClient, client, repo, "http://localhost:80/")
         configureDeviceAPI(repo)
-        configureFirmwareAPI(repo)
+        configureFirmwareAPI(repo, firmwareRoot)
     }.start(wait = true)
 }

@@ -78,6 +78,8 @@ fun Application.configureDeviceAPI(repo : IDeviceRepo) {
                 firmware = firmwareVersionEntity
             }
 
+            println("Device hello with ID ${deviceEntity.deviceId}")
+
             repo.addOrUpdateDevice(deviceEntity)
 
             return@post call.respond(HttpStatusCode.OK)
@@ -86,9 +88,47 @@ fun Application.configureDeviceAPI(repo : IDeviceRepo) {
         delete("/devices/{id}") {
             val id = call.parameters["id"] ?: ""
 
+            println("Device deleted with ID ${id}}")
+
             repo.getDevice(id)?.let {
                 repo.deleteDevice(id)
             } ?: return@delete call.respond(HttpStatusCode.NotFound)
+
+            call.respond(HttpStatusCode.OK)
+        }
+        post("/devices/{id}/offline") {
+            val id = call.parameters["id"] ?: ""
+
+            println("Device offline with ID ${id}}")
+            repo.getDevice(id)?.let {
+                repo.addOrUpdateDevice(it.apply { online = false })
+            } ?: return@post call.respond(HttpStatusCode.NotFound)
+
+            call.respond(HttpStatusCode.OK)
+        }
+        post("/devices/{id}/online") {
+            val id = call.parameters["id"] ?: ""
+
+            println("Device online with ID ${id}}")
+            repo.getDevice(id)?.let {
+                repo.addOrUpdateDevice(it.apply {
+                    online = true
+                    lastMessage = Instant.now().epochSecond
+                })
+            } ?: return@post call.respond(HttpStatusCode.NotFound)
+
+            call.respond(HttpStatusCode.OK)
+        }
+        post("/devices/{id}/updating") {
+            val id = call.parameters["id"] ?: ""
+
+            println("Device updating with ID ${id}}")
+            repo.getDevice(id)?.let {
+                repo.addOrUpdateDevice(it.apply {
+                    online = false
+                    lastMessage = Instant.now().epochSecond
+                })
+            } ?: return@post call.respond(HttpStatusCode.NotFound)
 
             call.respond(HttpStatusCode.OK)
         }

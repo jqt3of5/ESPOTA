@@ -19,25 +19,33 @@ import tech.equationoftime.tables.IDeviceRepo
 
 var mqttService : DeviceMqttService? = null
 
-fun Application.configureMqttService(http: HttpClient, mqtt: IMqttClient, repo : IDeviceRepo, apiHost : String) : DeviceMqttService {
+fun Application.configureMqttService(http: HttpClient, mqtt: IMqttClient, repo : IDeviceRepo, deviceAPIHost : String) : DeviceMqttService {
     //we're going to receive mqtt messages from the devices for online/offline statuses. listen for them, and then post them to the other microservice
+    //TODO: Authentication of any kind?
     mqttService = DeviceMqttService(mqtt) {
-        filter("manager/{deviceId}/online") {topic, message ->
+       deviceHello() {topic, message ->
 
             try {
                 val payload = message.payload.decodeToString()
                 val dto = Json.decodeFromString<onlineDTO>(payload)
-                http.post("${apiHost}/devices/${message.pathParams["deviceId"]}") {
+                http.post("${deviceAPIHost}/devices/${message.pathParams["deviceId"]}") {
                     header("content-type", "application/json")
                     setBody(dto)
                 }
             }catch (e : Exception) {
                println(e)
-                return@filter
             }
         }
-        filter("manager/{deviceId}/offline") { topic, message ->
-            http.delete("${apiHost}/devices/${message.pathParams["deviceId"]}")
+        deviceOnline() { topic, message ->
+            //TODO: What if this returns error code?
+            //TODO: Should this accept a body to update metadata?
+            http.post("${deviceAPIHost}/devices/${message.pathParams["deviceId"]}/online")
+        }
+        deviceOffline(){ topic, message ->
+            http.post("${deviceAPIHost}/devices/${message.pathParams["deviceId"]}/offline")
+        }
+        deviceUpdating(){ topic, message ->
+            http.post("${deviceAPIHost}/devices/${message.pathParams["deviceId"]}/updating")
         }
     }
 
@@ -47,7 +55,7 @@ fun Application.configureMqttService(http: HttpClient, mqtt: IMqttClient, repo :
             val id = call.parameters["id"] ?: ""
 
             repo.getDevice(id)?.let {
-                mqttService?.flash(call.parameters["id"] ?: "", apiHost, dto.firmwareId)
+                mqttService?.flash(call.parameters["id"] ?: "", "$deviceAPIHost/firmware/$dto.firmwareId")
             } ?: return@post call.respond(HttpStatusCode.NotFound)
 
             call.respond(HttpStatusCode.OK)

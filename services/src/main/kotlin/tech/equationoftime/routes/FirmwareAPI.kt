@@ -9,14 +9,13 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import tech.equationoftime.firmwareRoot
 import tech.equationoftime.models.FirmwareFamilyMetadataDTO
 import tech.equationoftime.models.FirmwareVersionMetadataDTO
 import tech.equationoftime.tables.*
 import java.nio.file.Files
 import kotlin.io.path.Path
 
-fun Application.configureFirmwareAPI(repo : IDeviceRepo) {
+fun Application.configureFirmwareAPI(repo : IDeviceRepo, firmwareRoot : String) {
 
     routing {
         //Get existing firmwares of firmware

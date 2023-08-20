@@ -37,9 +37,11 @@ class MqttRoutes(val mqttClient : IMqttClient) {
     public data class RoutedMessage(val payload : ByteArray, val pathParams : Map<String, String>)
 }
 
-class DeviceMqttService(val _client: IMqttClient, val configuration: (MqttRoutes.() -> Unit)? = null) : MqttCallback {
+class DeviceMqttService(val _client: IMqttClient, val configuration: (DeviceMqttService.() -> Unit)? = null) : MqttCallback {
 
     var _routes : MqttRoutes
+    val _topicPrefix = "ESPOTA"
+
     companion object {
     }
 
@@ -51,24 +53,40 @@ class DeviceMqttService(val _client: IMqttClient, val configuration: (MqttRoutes
     fun connect()
     {
         _client.connect()
-        configuration?.invoke(_routes)
+        configuration?.invoke(this)
+    }
+
+    public fun deviceHello(handler: suspend (topic: String, payload: MqttRoutes.RoutedMessage) -> Unit)
+    {
+        _routes.filter("${_topicPrefix}/manager/{deviceId}/hello", handler)
+    }
+    public fun deviceOnline(handler: suspend (topic: String, payload: MqttRoutes.RoutedMessage) -> Unit)
+    {
+        _routes.filter("${_topicPrefix}/manager/{deviceId}/online", handler)
+    }
+    public fun deviceOffline(handler: suspend (topic: String, payload: MqttRoutes.RoutedMessage) -> Unit)
+    {
+        _routes.filter("${_topicPrefix}/manager/{deviceId}/offline", handler)
+    }
+    public fun deviceUpdating(handler: suspend (topic: String, payload: MqttRoutes.RoutedMessage) -> Unit)
+    {
+        _routes.filter("${_topicPrefix}/manager/{deviceId}/updating", handler)
     }
     public fun reboot(deviceId : String)
     {
-        _client.publish("device/$deviceId/reboot", MqttMessage("\"\"".toByteArray()))
+        _client.publish("${_topicPrefix}/device/$deviceId/reboot", MqttMessage("\"\"".toByteArray()))
     }
-    public fun flash(deviceId : String, firmwareAPIUrl : String, firmwareId : String)
+    public fun flash(deviceId : String, firmwareAPIUrl : String)
     {
-        //todo: What is the public facing url?
-        _client.publish("device/$deviceId/flash", MqttMessage("$firmwareAPIUrl/firmware/$firmwareId".toByteArray()))
+        _client.publish("${_topicPrefix}/device/$deviceId/flash", MqttMessage(firmwareAPIUrl.toByteArray()))
     }
     public fun wifi(deviceId : String, ssid : String, psk : String)
     {
-        _client.publish("device/$deviceId/wifi", MqttMessage("$ssid:$psk".toByteArray()))
+        _client.publish("${_topicPrefix}/device/$deviceId/wifi", MqttMessage("$ssid:$psk".toByteArray()))
     }
     public fun mdns(deviceId : String, name : String)
     {
-        _client.publish("device/$deviceId/mdns", MqttMessage(name.toByteArray()))
+        _client.publish("${_topicPrefix}/device/$deviceId/mdns", MqttMessage(name.toByteArray()))
     }
 
     override fun connectionLost(cause: Throwable?) {
